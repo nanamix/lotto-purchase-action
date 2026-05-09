@@ -2,34 +2,33 @@
 
 **실제 동행복권 계정으로 로또 6/45를 자동 구매하는 GitHub Action입니다.**
 
-매주 정해진 시간에 GitHub Actions가 실행되어, 실제 동행복권 사이트에 로그인하고 로또를 구매합니다. 구매 결과는 [GitHub Issue](https://github.com/kkd927/lotto-purchase-action/issues/1)로 기록되며, 추첨 후 당첨 여부도 자동으로 확인됩니다.
+매주 정해진 시간에 GitHub Actions가 실행되어, 실제 동행복권 사이트에 로그인하고 로또를 구매합니다. GitHub Actions 화면에서 수동 실행도 가능하며, 기본 설정은 Copilot/GitHub Models 추천 번호 5게임 구매입니다. 구매 결과는 GitHub Issue로 기록되며, Issues가 꺼진 저장소에서는 Actions job summary에 기록됩니다.
 
 ## ✨ 주요 기능
 
-| 기능 | 설명 |
-| --- | --- |
-| 🤖 **자동번호 구매** | 게임 수만 정하면 번호는 자동 생성 |
-| ✍️ **수동번호 구매** | 내가 원하는 번호를 직접 지정해서 구매 |
-| 🔀 **자동 + 수동 조합** | 한 번에 자동과 수동을 섞어서 구매 |
-| 🧩 **커스텀 로직** | JS 파일 하나로 나만의 구매 전략을 자유롭게 작성 |
-| 💡 **AI 연동** | Gemini API로 추천 번호를 받아 구매하는 예제 포함 |
-| 📋 **결과 기록** | 구매 내역이 GitHub Issue에 자동 정리 ([예시](https://github.com/kkd927/lotto-purchase-action/issues/1)) |
-| 🔔 **텔레그램 알림** | 구매/당첨 결과를 텔레그램으로 알림 (선택) |
+| 기능                    | 설명                                                                                  |
+| ----------------------- | ------------------------------------------------------------------------------------- |
+| 🤖 **자동번호 구매**    | 게임 수만 정하면 번호는 자동 생성                                                     |
+| ✍️ **수동번호 구매**    | 내가 원하는 번호를 직접 지정해서 구매                                                 |
+| 🔀 **자동 + 수동 조합** | 한 번에 자동과 수동을 섞어서 구매                                                     |
+| 🧩 **커스텀 로직**      | JS 파일 하나로 나만의 구매 전략을 자유롭게 작성                                       |
+| 💡 **AI 연동**          | Copilot/GitHub Models 또는 Gemini 추천 번호로 1~5게임 구매                            |
+| ▶️ **수동 실행**        | GitHub Actions `Run workflow`에서 구매 방식, AI provider, 게임 수 선택                |
+| 📋 **결과 기록**        | 구매 내역이 GitHub Issue에 자동 정리. Issues가 꺼져 있으면 Actions job summary에 기록 |
+| 🔔 **텔레그램 알림**    | 구매/당첨 결과를 텔레그램으로 알림 (선택)                                             |
 
 ## 🚀 바로 시작
 
-> **⚠️ 동행복권 예치금이 미리 충전되어 있어야 구매가 진행됩니다.**
-> 예치금이 없으면 워크플로우는 실행되지만 구매에 실패합니다.
+> **⚠️ 동행복권 예치금이 미리 충전되어 있어야 구매가 진행됩니다.** 예치금이 없으면 워크플로우는 실행되지만 구매에 실패합니다.
 
 ### 방법 1: Fork (가장 간단)
 
-> **📢 참고**: Fork한 저장소는 **public**이므로, **구매 이력(GitHub Issue)이 누구나 볼 수 있습니다.**
-> 구매 이력을 비공개로 유지하고 싶다면 아래 **방법 2**를 사용하세요.
+> **📢 참고**: Fork한 저장소는 **public**이므로, **구매 이력(GitHub Issue)이 누구나 볼 수 있습니다.** 구매 이력을 비공개로 유지하고 싶다면 아래 **방법 2**를 사용하세요.
 
 1. 이 저장소를 **Fork**합니다.
 2. Fork한 저장소의 **Actions** 탭에서 **I understand my workflows, go ahead and enable them**을 눌러 활성화합니다.
 3. **Settings > Secrets and variables > Actions > Repository secrets**에서 **New repository secret** 버튼을 눌러 시크릿을 추가합니다. (아래 표 참고)
-4. **Actions** 탭에서 `lotto-purchase.yml`의 **Enable workflow**를 누릅니다.
+4. **Actions** 탭에서 `로또 구매 (수동 + 스케줄)` workflow의 **Enable workflow**를 누릅니다.
 5. 바로 테스트하려면 **Run workflow**를 누릅니다.
 
 ### 방법 2: Clone → 내 Private 저장소로 Push
@@ -50,21 +49,43 @@ git push -u origin main
 
 이후 설정은 Fork 방식과 동일합니다. (시크릿 추가 → 워크플로우 활성화)
 
-> **💡 Tip**: Private 저장소의 GitHub Actions는 월 무료 한도(2,000분)가 적용됩니다.
-> 이 워크플로우는 1회 실행에 약 1~2분이므로, 매주 실행해도 충분합니다.
+> **💡 Tip**: Private 저장소의 GitHub Actions는 월 무료 한도(2,000분)가 적용됩니다. 이 워크플로우는 1회 실행에 약 1~2분이므로, 매주 실행해도 충분합니다.
 
 ### 시크릿 설정
 
 **Settings > Secrets and variables > Actions > Repository secrets > New repository secret** 버튼을 눌러 아래 항목을 하나씩 추가합니다.
 
-| Name | 필수 여부 | 설명 |
-| --- | :---: | --- |
-| `DHLOTTERY_ID` | ✅ 필수 | 동행복권 로그인 아이디 |
-| `DHLOTTERY_PASSWORD` | ✅ 필수 | 동행복권 로그인 비밀번호 |
-| `TELEGRAM_BOT_TOKEN` | 선택 | 알림용 텔레그램 봇 토큰 |
-| `TELEGRAM_CHAT_ID` | 선택 | 알림용 텔레그램 채팅 ID |
+| Name                 | 필수 여부 | 설명                                                             |
+| -------------------- | :-------: | ---------------------------------------------------------------- |
+| `DHLOTTERY_ID`       |  ✅ 필수  | 동행복권 로그인 아이디                                           |
+| `DHLOTTERY_PASSWORD` |  ✅ 필수  | 동행복권 로그인 비밀번호                                         |
+| `GEMINI_API_KEY`     |   선택    | Gemini 추천 번호 구매 또는 GitHub Models 실패 시 Gemini fallback |
+| `TELEGRAM_BOT_TOKEN` |   선택    | 알림용 텔레그램 봇 토큰                                          |
+| `TELEGRAM_CHAT_ID`   |   선택    | 알림용 텔레그램 채팅 ID                                          |
 
 > **💡 참고**: `GITHUB_TOKEN`은 GitHub가 자동으로 제공하므로 직접 추가할 필요가 없습니다.
+
+### 기본 실행값
+
+기본 workflow는 아래 값으로 동작합니다.
+
+| 항목               | 기본값                | 설명                              |
+| ------------------ | --------------------- | --------------------------------- |
+| 스케줄             | 매주 일요일 12:00 KST | cron: `0 3 * * 0` (UTC 기준)      |
+| 구매 방식          | `ai-recommendation`   | AI 추천 번호 수동 구매            |
+| AI provider        | `copilot`             | 내부적으로 GitHub Models API 사용 |
+| GitHub Models 모델 | `openai/gpt-5`        | `GITHUB_MODELS_MODEL`로 변경 가능 |
+| 게임 수            | `5`                   | 수동 실행 시 `1~5` 선택 가능      |
+
+수동 구매는 **Actions -> 로또 구매 (수동 + 스케줄) -> Run workflow**에서 실행합니다.
+
+수동 실행에서 선택할 수 있는 값:
+
+| 입력               | 선택값                                                                                         |
+| ------------------ | ---------------------------------------------------------------------------------------------- |
+| `purchase-profile` | `ai-recommendation`, `auto-basic`, `manual-fixed`, `auto-plus-manual`, `gemini-recommendation` |
+| `ai-provider`      | `copilot`, `github`, `gemini`                                                                  |
+| `game-count`       | `1`, `2`, `3`, `4`, `5`                                                                        |
 
 ## 🔒 비밀번호는 안전한가요?
 
@@ -78,20 +99,41 @@ git push -u origin main
 
 ## 🛠️ 워크플로우 예제
 
-기본 워크플로우는 [lotto-purchase.yml](./.github/workflows/lotto-purchase.yml)에 포함되어 있습니다. `workflow-file` 한 줄만 바꿔서 다양한 예제를 실행할 수 있습니다.
+기본 워크플로우는 [lotto-purchase.yml](./.github/workflows/lotto-purchase.yml)에 포함되어 있습니다. 수동 실행 화면에서 구매 방식을 선택하거나, `workflow-file`을 직접 지정해서 다양한 예제를 실행할 수 있습니다.
 
 ```yaml
 workflow-file: custom-workflows/01-auto-basic.js
 # workflow-file: custom-workflows/02-manual-fixed-numbers.js
 # workflow-file: custom-workflows/03-auto-plus-manual.js
+# workflow-file: custom-workflows/04-gemini-recommendation.js
+# workflow-file: custom-workflows/05-ai-recommendation.js
 ```
 
-| 예제 | 설명 |
-| --- | --- |
-| `01-auto-basic.js` | 자동 5게임 구매 |
-| `02-manual-fixed-numbers.js` | 고정 번호 수동 구매 |
-| `03-auto-plus-manual.js` | 자동 + 수동 조합 구매 |
-| `04-gemini-recommendation.js` | Gemini API 추천 번호 구매 |
+| 예제                          | 설명                                                     |
+| ----------------------------- | -------------------------------------------------------- |
+| `01-auto-basic.js`            | 자동 5게임 구매                                          |
+| `02-manual-fixed-numbers.js`  | 고정 번호 수동 구매                                      |
+| `03-auto-plus-manual.js`      | 자동 + 수동 조합 구매                                    |
+| `04-gemini-recommendation.js` | Gemini API 추천 번호 구매                                |
+| `05-ai-recommendation.js`     | Copilot/GitHub Models 또는 Gemini 추천 번호 1~5게임 구매 |
+
+### AI 추천 모델 확인
+
+GitHub Models가 저장소에서 사용 가능한지 확인하려면 [models-check.yml](./.github/workflows/models-check.yml)을 수동 실행하세요.
+
+1. **Actions -> GitHub Models Check -> Run workflow**
+2. 기본 후보 모델의 `status` 확인
+3. `status=200`이면 사용 가능, `403`이면 repository/organization 설정에서 GitHub Models 또는 해당 모델이 막힌 상태입니다.
+
+현재 기본 모델은 `openai/gpt-5`입니다. 다른 모델을 쓰고 싶으면 workflow env에 `GITHUB_MODELS_MODEL`을 지정하세요.
+
+```yaml
+env:
+  GITHUB_TOKEN: ${{ github.token }}
+  AI_PROVIDER: copilot
+  AI_GAME_COUNT: '5'
+  GITHUB_MODELS_MODEL: openai/gpt-5
+```
 
 <details>
 <summary><b>나만의 구매 전략 만들기</b></summary>
@@ -104,7 +146,7 @@ export default async ({ purchaseAuto, purchaseManual }) => {
   await purchaseAuto(3);
   await purchaseManual([
     [3, 11, 19, 25, 33, 42],
-    [7, 14, 21, 28, 35, 40],
+    [7, 14, 21, 28, 35, 40]
   ]);
 };
 ```
