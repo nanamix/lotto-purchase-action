@@ -90,9 +90,23 @@ function getPrompt(gameCount) {
 }
 
 async function requestAiGames(provider, gameCount) {
-  const text = provider === 'gemini' ? await requestGeminiText(gameCount) : await requestGitHubModelsText(gameCount);
-  console.log('AI 응답:', text);
-  return parseRecommendedGames(text, gameCount);
+  const providers = getProviderSequence(provider);
+  let lastError = null;
+
+  for (const currentProvider of providers) {
+    try {
+      const text =
+        currentProvider === 'gemini' ? await requestGeminiText(gameCount) : await requestGitHubModelsText(gameCount);
+      console.log('AI 응답:', text);
+      return parseRecommendedGames(text, gameCount);
+    } catch (error) {
+      lastError = error;
+      const message = error instanceof Error ? error.message : String(error);
+      console.log(`${currentProvider} 추천 호출 실패: ${message}`);
+    }
+  }
+
+  throw lastError ?? new Error('AI 추천 호출에 실패했습니다.');
 }
 
 async function requestGitHubModelsText(gameCount) {
@@ -121,7 +135,7 @@ async function requestGitHubModelsText(gameCount) {
   });
 
   if (!response.ok) {
-    throw new Error(`GitHub Models API 요청 실패 (${response.status})`);
+    throw new Error(await buildHttpErrorMessage('GitHub Models API', response));
   }
 
   return extractGitHubModelsText(await response.json());
@@ -150,10 +164,28 @@ async function requestGeminiText(gameCount) {
   });
 
   if (!response.ok) {
-    throw new Error(`Gemini API 요청 실패 (${response.status})`);
+    throw new Error(await buildHttpErrorMessage('Gemini API', response));
   }
 
   return extractGeminiText(await response.json());
+}
+
+export function getProviderSequence(provider, env = process.env) {
+  if (provider === 'github' && env.GEMINI_API_KEY) {
+    return ['github', 'gemini'];
+  }
+
+  return [provider];
+}
+
+export async function buildHttpErrorMessage(apiName, response) {
+  const body = await response
+    .text()
+    .then(text => text.replace(/\s+/g, ' ').trim())
+    .catch(() => '');
+  const detail = body ? `: ${body.slice(0, 500)}` : '';
+
+  return `${apiName} 요청 실패 (${response.status})${detail}`;
 }
 
 export function extractGitHubModelsText(data) {

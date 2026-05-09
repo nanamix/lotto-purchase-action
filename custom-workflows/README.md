@@ -165,7 +165,9 @@ permissions:
     GEMINI_MODEL: gemini-2.5-flash
 ```
 
-AI 응답이 비어 있거나 형식이 맞지 않으면 예제 파일 안의 `FALLBACK_NUMBERS`를 사용합니다.
+AI 응답이 비어 있거나 형식이 맞지 않으면 예제 파일 안의 `FALLBACK_GAMES`를 사용합니다.
+
+GitHub Models 호출이 `403`으로 실패하면 repository 또는 organization에서 GitHub Models 사용이 막혀 있거나, 선택한 모델/퍼블리셔가 허용되지 않은 상태일 수 있습니다. 이 경우 GitHub의 Models 설정을 활성화하거나, `AI_PROVIDER=gemini`와 `GEMINI_API_KEY`로 실행하세요. `05-ai-recommendation.js`는 `GEMINI_API_KEY`가 있으면 GitHub Models 실패 후 Gemini를 한 번 더 시도합니다.
 
 ## 작성 팁
 

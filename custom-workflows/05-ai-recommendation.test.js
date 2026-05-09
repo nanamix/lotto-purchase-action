@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  buildHttpErrorMessage,
   extractGeminiText,
   extractGitHubModelsText,
+  getProviderSequence,
   normalizeProvider,
   parseGameCount,
   parseRecommendedGames,
@@ -60,6 +62,21 @@ test('normalizeProvider defaults to github and supports gemini alias', () => {
 
 test('normalizeProvider rejects unknown providers', () => {
   assert.throws(() => normalizeProvider('openai'), /AI_PROVIDER/);
+});
+
+test('getProviderSequence tries gemini after github when a Gemini key is available', () => {
+  assert.deepEqual(getProviderSequence('github', { GEMINI_API_KEY: 'key' }), ['github', 'gemini']);
+  assert.deepEqual(getProviderSequence('github', {}), ['github']);
+  assert.deepEqual(getProviderSequence('gemini', { GEMINI_API_KEY: 'key' }), ['gemini']);
+});
+
+test('buildHttpErrorMessage includes response body details', async () => {
+  const message = await buildHttpErrorMessage('GitHub Models API', {
+    status: 403,
+    text: async () => '{"message":"models access is disabled"}'
+  });
+
+  assert.equal(message, 'GitHub Models API 요청 실패 (403): {"message":"models access is disabled"}');
 });
 
 test('extractGitHubModelsText reads the first chat completion message', () => {
