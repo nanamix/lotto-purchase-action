@@ -11,7 +11,7 @@
 - 자동번호 1~5게임 구매
 - 직접 지정한 번호로 수동 구매
 - 자동 + 수동 조합 구매
-- GitHub Models 또는 Gemini 추천 번호 구매
+- GitHub Models, 별도 OpenAI API, Gemini 추천 번호 구매
 - GitHub Actions 화면에서 즉시 수동 실행
 - 구매 결과를 GitHub Issue에 기록
 - Issues가 꺼진 저장소에서는 Actions job summary에 기록
@@ -48,8 +48,8 @@ GitHub 저장소에서 **Settings -> Secrets and variables -> Actions -> Reposit
 
 선택:
 
-- `GEMINI_API_KEY`: Gemini 추천 번호 구매 또는 GitHub Models 실패 시 Gemini fallback
-- `OPENAI_API_KEY`: 별도 OpenAI API로 추천 번호를 받을 때 사용
+- `GEMINI_API_KEY`: Gemini 추천 번호 구매 또는 GitHub Models 실패 시 Gemini fallback에 사용
+- `OPENAI_API_KEY`: 별도 OpenAI API provider로 추천 번호를 받을 때 사용
 - `TELEGRAM_BOT_TOKEN`: 텔레그램 알림용 봇 토큰
 - `TELEGRAM_CHAT_ID`: 텔레그램 알림용 채팅 ID
 
@@ -85,7 +85,7 @@ GitHub에서 바로 실행할 수 있습니다.
 선택값:
 
 - `purchase-profile`
-  - `ai-recommendation`: GitHub Models 또는 Gemini 추천 번호 구매
+  - `ai-recommendation`: GitHub Models, 별도 OpenAI API, Gemini 추천 번호 구매
   - `auto-basic`: 자동번호 구매
   - `manual-fixed`: 고정 번호 수동 구매
   - `auto-plus-manual`: 자동 + 수동 조합 구매
@@ -98,6 +98,14 @@ GitHub에서 바로 실행할 수 있습니다.
   - `1`~`5`
 
 ## AI 추천 설정
+
+AI provider는 세 가지입니다.
+
+| provider | 용도                      | 필요한 값                           |
+| -------- | ------------------------- | ----------------------------------- |
+| `github` | GitHub Models API 사용    | `GITHUB_TOKEN`, `models: read` 권한 |
+| `openai` | 별도 OpenAI API 직접 호출 | `OPENAI_API_KEY`                    |
+| `gemini` | Gemini API 직접 호출      | `GEMINI_API_KEY`                    |
 
 ### GitHub Models
 
@@ -128,7 +136,7 @@ env:
 
 ### OpenAI API
 
-별도 OpenAI API를 사용하려면 `OPENAI_API_KEY` secret을 등록하고 수동 실행에서 `ai-provider=openai`를 선택하세요.
+별도 OpenAI API를 사용하려면 `OPENAI_API_KEY` secret을 등록하고 수동 실행에서 `ai-provider=openai`를 선택하세요. 이 provider는 GitHub Models 권한과 별개로 OpenAI API를 직접 호출합니다.
 
 직접 env로 지정하는 경우:
 
@@ -154,7 +162,7 @@ env:
   GEMINI_MODEL: gemini-2.5-flash
 ```
 
-`05-ai-recommendation.js`는 `GEMINI_API_KEY`가 있으면 GitHub Models 실패 후 Gemini를 한 번 더 시도합니다. 그래도 실패하거나 응답 파싱이 안 되면 fallback 번호로 구매합니다.
+`05-ai-recommendation.js`는 `AI_PROVIDER=github`이고 `GEMINI_API_KEY`가 있으면 GitHub Models 실패 후 Gemini를 한 번 더 시도합니다. `AI_PROVIDER=openai` 또는 `AI_PROVIDER=gemini`에서 실패하거나 응답 파싱이 안 되면 fallback 번호로 구매합니다.
 
 ## 구매 전략 예제
 
