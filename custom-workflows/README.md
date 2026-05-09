@@ -146,7 +146,7 @@ permissions:
     GITHUB_TOKEN: ${{ github.token }}
     AI_PROVIDER: copilot
     AI_GAME_COUNT: '5'
-    GITHUB_MODELS_MODEL: openai/gpt-4o-mini
+    GITHUB_MODELS_MODEL: openai/gpt-5
 ```
 
 ### Gemini

@@ -15,14 +15,14 @@
  * 환경변수:
  * - AI_PROVIDER: github 또는 gemini (기본값: github)
  * - AI_GAME_COUNT: 구매 게임 수, 1~5 (기본값: 1)
- * - GITHUB_MODELS_MODEL: GitHub Models model id (기본값: openai/gpt-4o-mini)
+ * - GITHUB_MODELS_MODEL: GitHub Models model id (기본값: openai/gpt-5)
  * - GEMINI_MODEL: Gemini model id (기본값: gemini-2.5-flash)
  *
  * 이 실행이 끝나면 구매 결과는 GitHub Issue 1개로 정리됩니다.
  */
 const PROVIDERS = new Set(['github', 'gemini']);
 const GITHUB_MODELS_ENDPOINT = 'https://models.github.ai/inference/chat/completions';
-const DEFAULT_GITHUB_MODEL = 'openai/gpt-4o-mini';
+const DEFAULT_GITHUB_MODEL = 'openai/gpt-5';
 const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
 const FALLBACK_GAMES = [
   [3, 7, 12, 23, 31, 42],
