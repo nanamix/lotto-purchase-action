@@ -128,6 +128,7 @@ permissions:
     github-token: ${{ github.token }}
     workflow-file: custom-workflows/05-ai-recommendation.js
   env:
+    GITHUB_TOKEN: ${{ github.token }}
     AI_PROVIDER: github
     GITHUB_MODELS_MODEL: openai/gpt-4o-mini
 ```
