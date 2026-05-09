@@ -13,6 +13,7 @@
 - 자동 + 수동 조합 구매
 - GitHub Models, 별도 OpenAI API, Gemini 추천 번호 구매
 - GitHub Actions 화면에서 즉시 수동 실행
+- 구매 없이 기존 대기 Issue 당첨 결과만 수동 확인
 - 구매 결과를 GitHub Issue에 기록
 - Issues가 꺼진 저장소에서는 Actions job summary에 기록
 - 텔레그램 구매/당첨 알림
@@ -41,10 +42,12 @@ git push -u origin main
 
 GitHub 저장소에서 **Settings -> Secrets and variables -> Actions -> Repository secrets**로 이동해 등록합니다.
 
-필수:
+구매 실행 시 필수:
 
 - `DHLOTTERY_ID`: 동행복권 로그인 아이디
 - `DHLOTTERY_PASSWORD`: 동행복권 로그인 비밀번호
+
+`purchase-profile=check-winning-only`로 결과 확인만 할 때는 동행복권 로그인을 하지 않으므로 위 두 값이 사용되지 않습니다.
 
 선택:
 
@@ -90,6 +93,7 @@ GitHub에서 바로 실행할 수 있습니다.
   - `manual-fixed`: 고정 번호 수동 구매
   - `auto-plus-manual`: 자동 + 수동 조합 구매
   - `gemini-recommendation`: Gemini 추천 번호 구매
+  - `check-winning-only`: 구매 없이 기존 대기 Issue 당첨 결과만 확인
 - `ai-provider`
   - `github`: GitHub Models API 사용
   - `openai`: 별도 OpenAI API 사용
@@ -197,6 +201,8 @@ export default async ({ purchaseAuto, purchaseManual }) => {
 - 텔레그램 설정이 있으면 구매/당첨 알림 전송
 
 추첨 후 기존 waiting Issue를 확인해 당첨 여부를 업데이트합니다. Issues가 꺼진 저장소에서는 이전 구매 Issue 조회를 건너뜁니다.
+
+결과 확인만 하고 새 구매를 막고 싶으면 수동 실행에서 `purchase-profile=check-winning-only`를 선택하세요. 이 모드는 동행복권 로그인과 구매 화면 진입을 건너뛰고, 기존 `:hourglass:` Issue의 당첨 결과 확인만 수행합니다.
 
 ## 보안
 

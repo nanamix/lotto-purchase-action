@@ -57526,25 +57526,14 @@ function loadWorkflow(workflowFile) {
 }
 function run() {
     return __awaiter$3(this, void 0, void 0, function* () {
-        const session = new BrowserSession();
+        let session = null;
         const purchases = []; // Track all successful purchases
         try {
             // Get inputs
-            const id = coreExports.getInput('dhlottery-id', { required: true });
-            const pwd = coreExports.getInput('dhlottery-password', { required: true });
-            coreExports.setSecret(id);
-            coreExports.setSecret(pwd);
+            const checkWinningOnly = coreExports.getBooleanInput('check-winning-only');
             const amount = parseInt(coreExports.getInput('game-count') || '5');
             const workflowFile = coreExports.getInput('workflow-file');
             console.log('[Main] Starting lotto purchase action');
-            // Initialize browser and login
-            console.log('[Main] Initializing browser session');
-            yield session.init({
-                headless: true,
-                args: ['--no-sandbox']
-            });
-            console.log('[Main] Logging in');
-            yield session.login(id, pwd);
             // Initialize GitHub labels
             console.log('[Main] Initializing GitHub labels');
             yield initLabels();
@@ -57555,11 +57544,29 @@ function run() {
             for (const result of winningResults) {
                 yield notifyWinning(result.issueNumber, result.round, result.ranks);
             }
+            if (checkWinningOnly) {
+                console.log('[Main] Check-winning-only mode enabled. Skipping browser login and purchase flow.');
+                return;
+            }
+            const id = coreExports.getInput('dhlottery-id', { required: true });
+            const pwd = coreExports.getInput('dhlottery-password', { required: true });
+            coreExports.setSecret(id);
+            coreExports.setSecret(pwd);
+            session = new BrowserSession();
+            // Initialize browser and login
+            console.log('[Main] Initializing browser session');
+            yield session.init({
+                headless: true,
+                args: ['--no-sandbox']
+            });
+            console.log('[Main] Logging in');
+            yield session.login(id, pwd);
+            const activeSession = session;
             // Create API with session bound to functions (no need to pass session manually)
             const api = {
                 purchaseAuto: (amt) => __awaiter$3(this, void 0, void 0, function* () {
                     console.log(`[Main] Executing auto purchase: ${amt} games`);
-                    const result = yield purchaseAuto(session, amt);
+                    const result = yield purchaseAuto(activeSession, amt);
                     purchases.push({
                         type: 'auto',
                         numbers: result,
@@ -57570,7 +57577,7 @@ function run() {
                 }),
                 purchaseManual: (numbers) => __awaiter$3(this, void 0, void 0, function* () {
                     console.log(`[Main] Executing manual purchase: ${numbers.length} games`);
-                    const result = yield purchaseManual(session, numbers);
+                    const result = yield purchaseManual(activeSession, numbers);
                     purchases.push({
                         type: 'manual',
                         numbers: result,
@@ -57627,8 +57634,10 @@ function run() {
                 console.log(`[Main] No successful purchases to create issue`);
             }
             // Close browser session
-            console.log('[Main] Closing browser session');
-            yield session.close();
+            if (session) {
+                console.log('[Main] Closing browser session');
+                yield session.close();
+            }
             console.log('[Main] Action completed');
         }
     });

@@ -6,12 +6,12 @@ branding:
 author: 'kkd927 <kkd927@gmail.com>'
 inputs:
   dhlottery-id:
-    required: true
-    description: '동행복권 로그인 아이디'
+    required: false
+    description: '동행복권 로그인 아이디. 구매 실행 시 필요하며 check-winning-only에서는 사용하지 않습니다.'
     default: ''
   dhlottery-password:
-    required: true
-    description: '동행복권 로그인 비밀번호'
+    required: false
+    description: '동행복권 로그인 비밀번호. 구매 실행 시 필요하며 check-winning-only에서는 사용하지 않습니다.'
     default: ''
   github-token:
     required: false
@@ -25,6 +25,10 @@ inputs:
     required: false
     description: '커스텀 워크플로우 스크립트 경로. 체크아웃된 워크스페이스 내부의 .js/.mjs/.cjs 파일만 허용됩니다.'
     default: ''
+  check-winning-only:
+    required: false
+    description: 'true이면 구매 없이 기존 대기 Issue의 당첨 여부만 확인합니다.'
+    default: 'false'
   telegram-bot-token:
     required: false
     description: '텔레그램 봇 토큰 (optional, 알림용)'

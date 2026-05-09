@@ -17,6 +17,7 @@ on:
           - manual-fixed
           - auto-plus-manual
           - gemini-recommendation
+          - check-winning-only
       ai-provider:
         description: 'AI 추천 provider (ai-recommendation에서 사용)'
         required: true
@@ -74,6 +75,10 @@ jobs:
             gemini-recommendation)
               echo "workflow-file=custom-workflows/04-gemini-recommendation.js" >> "$GITHUB_OUTPUT"
               ;;
+            check-winning-only)
+              echo "workflow-file=" >> "$GITHUB_OUTPUT"
+              echo "check-winning-only=true" >> "$GITHUB_OUTPUT"
+              ;;
             *)
               echo "Unknown purchase-profile: ${{ inputs.purchase-profile }}" >&2
               exit 1
@@ -90,6 +95,7 @@ jobs:
           telegram-chat-id: ${{ secrets.TELEGRAM_CHAT_ID }}
           game-count: ${{ inputs.game-count || '5' }}
           workflow-file: ${{ steps.purchase-workflow.outputs.workflow-file }}
+          check-winning-only: ${{ steps.purchase-workflow.outputs.check-winning-only || 'false' }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
           AI_PROVIDER: ${{ inputs.ai-provider || 'github' }}

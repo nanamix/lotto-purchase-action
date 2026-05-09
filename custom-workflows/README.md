@@ -25,6 +25,7 @@
 
 - 스케줄 실행 기본값: `ai-recommendation` + `AI_PROVIDER=github` + `game-count=5`
 - 수동 실행: GitHub Actions의 `Run workflow` 화면에서 `purchase-profile`, `ai-provider`, `game-count`를 선택
+- 결과 확인만 실행: `purchase-profile=check-winning-only`
 
 ```yaml
 purchase-profile:
@@ -33,6 +34,7 @@ purchase-profile:
   - manual-fixed
   - auto-plus-manual
   - gemini-recommendation
+  - check-winning-only
 
 ai-provider:
   - github
@@ -56,6 +58,8 @@ workflow-file: custom-workflows/01-auto-basic.js
 # workflow-file: custom-workflows/04-gemini-recommendation.js
 # workflow-file: custom-workflows/05-ai-recommendation.js
 ```
+
+`check-winning-only`는 커스텀 파일을 실행하지 않습니다. 기존 `:hourglass:` Issue를 확인해 당첨 결과만 갱신하고 새 구매는 하지 않습니다.
 
 ## 지원 포맷
 

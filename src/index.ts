@@ -88,30 +88,16 @@ async function loadWorkflow(workflowFile: string): Promise<CustomWorkflow> {
 }
 
 async function run() {
-  const session = new BrowserSession();
+  let session: BrowserSession | null = null;
   const purchases: PurchaseMetadata[] = []; // Track all successful purchases
 
   try {
     // Get inputs
-    const id = core.getInput('dhlottery-id', { required: true });
-    const pwd = core.getInput('dhlottery-password', { required: true });
-    core.setSecret(id);
-    core.setSecret(pwd);
-
+    const checkWinningOnly = core.getBooleanInput('check-winning-only');
     const amount = parseInt(core.getInput('game-count') || '5');
     const workflowFile = core.getInput('workflow-file');
 
     console.log('[Main] Starting lotto purchase action');
-
-    // Initialize browser and login
-    console.log('[Main] Initializing browser session');
-    await session.init({
-      headless: true,
-      args: ['--no-sandbox']
-    });
-
-    console.log('[Main] Logging in');
-    await session.login(id, pwd);
 
     // Initialize GitHub labels
     console.log('[Main] Initializing GitHub labels');
@@ -126,11 +112,34 @@ async function run() {
       await notifyWinning(result.issueNumber, result.round, result.ranks);
     }
 
+    if (checkWinningOnly) {
+      console.log('[Main] Check-winning-only mode enabled. Skipping browser login and purchase flow.');
+      return;
+    }
+
+    const id = core.getInput('dhlottery-id', { required: true });
+    const pwd = core.getInput('dhlottery-password', { required: true });
+    core.setSecret(id);
+    core.setSecret(pwd);
+
+    session = new BrowserSession();
+
+    // Initialize browser and login
+    console.log('[Main] Initializing browser session');
+    await session.init({
+      headless: true,
+      args: ['--no-sandbox']
+    });
+
+    console.log('[Main] Logging in');
+    await session.login(id, pwd);
+    const activeSession = session;
+
     // Create API with session bound to functions (no need to pass session manually)
     const api = {
       purchaseAuto: async (amt: number) => {
         console.log(`[Main] Executing auto purchase: ${amt} games`);
-        const result = await purchaseAuto(session, amt);
+        const result = await purchaseAuto(activeSession, amt);
         purchases.push({
           type: 'auto',
           numbers: result,
@@ -141,7 +150,7 @@ async function run() {
       },
       purchaseManual: async (numbers: number[][]) => {
         console.log(`[Main] Executing manual purchase: ${numbers.length} games`);
-        const result = await purchaseManual(session, numbers);
+        const result = await purchaseManual(activeSession, numbers);
         purchases.push({
           type: 'manual',
           numbers: result,
@@ -196,8 +205,10 @@ async function run() {
     }
 
     // Close browser session
-    console.log('[Main] Closing browser session');
-    await session.close();
+    if (session) {
+      console.log('[Main] Closing browser session');
+      await session.close();
+    }
 
     console.log('[Main] Action completed');
   }
