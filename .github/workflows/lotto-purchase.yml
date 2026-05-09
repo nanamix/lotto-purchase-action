@@ -26,6 +26,17 @@ on:
           - copilot
           - github
           - gemini
+      game-count:
+        description: '구매 게임 수 (1~5)'
+        required: true
+        default: '5'
+        type: choice
+        options:
+          - '1'
+          - '2'
+          - '3'
+          - '4'
+          - '5'
 
 permissions:
   contents: read
@@ -77,8 +88,10 @@ jobs:
           github-token: ${{ github.token }}
           telegram-bot-token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           telegram-chat-id: ${{ secrets.TELEGRAM_CHAT_ID }}
+          game-count: ${{ inputs.game-count || '5' }}
           workflow-file: ${{ steps.purchase-workflow.outputs.workflow-file }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
           AI_PROVIDER: ${{ inputs.ai-provider || 'copilot' }}
+          AI_GAME_COUNT: ${{ inputs.game-count || '5' }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}

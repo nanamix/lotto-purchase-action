@@ -4,6 +4,8 @@ import {
   extractGeminiText,
   extractGitHubModelsText,
   normalizeProvider,
+  parseGameCount,
+  parseRecommendedGames,
   parseRecommendedNumbers
 } from './05-ai-recommendation.js';
 
@@ -23,6 +25,29 @@ test('parseRecommendedNumbers ignores out-of-range numbers before selecting six 
   const result = parseRecommendedNumbers('0, 46, 11, 2, 33, 19, 27, 41');
 
   assert.deepEqual(result, [2, 11, 19, 27, 33, 41]);
+});
+
+test('parseRecommendedGames returns the requested number of games', () => {
+  const result = parseRecommendedGames('1) 3, 7, 12, 23, 31, 42\n2) 4, 9, 16, 22, 33, 41\n3) 5, 10, 17, 24, 35, 44', 3);
+
+  assert.deepEqual(result, [
+    [3, 7, 12, 23, 31, 42],
+    [4, 9, 16, 22, 33, 41],
+    [5, 10, 17, 24, 35, 44]
+  ]);
+});
+
+test('parseRecommendedGames rejects duplicate game recommendations', () => {
+  const result = parseRecommendedGames('3, 7, 12, 23, 31, 42\n3, 7, 12, 23, 31, 42', 2);
+
+  assert.equal(result, null);
+});
+
+test('parseGameCount defaults to one and clamps to five games', () => {
+  assert.equal(parseGameCount(undefined), 1);
+  assert.equal(parseGameCount('3'), 3);
+  assert.equal(parseGameCount('0'), 1);
+  assert.equal(parseGameCount('9'), 5);
 });
 
 test('normalizeProvider defaults to github and supports gemini alias', () => {

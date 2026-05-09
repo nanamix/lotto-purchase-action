@@ -1,8 +1,8 @@
 /**
  * 05. AI 추천 번호 예제
  *
- * GitHub Models 또는 Gemini API로 추천 번호 1게임을 받아 수동 구매합니다.
- * 응답이 비어 있거나 형식이 맞지 않으면 FALLBACK_NUMBERS를 사용합니다.
+ * GitHub Models 또는 Gemini API로 추천 번호 1~5게임을 받아 수동 구매합니다.
+ * 응답이 비어 있거나 형식이 맞지 않으면 FALLBACK_GAMES를 사용합니다.
  *
  * GitHub Models 설정:
  * - workflow permissions에 `models: read` 추가
@@ -14,6 +14,7 @@
  *
  * 환경변수:
  * - AI_PROVIDER: github 또는 gemini (기본값: github)
+ * - AI_GAME_COUNT: 구매 게임 수, 1~5 (기본값: 1)
  * - GITHUB_MODELS_MODEL: GitHub Models model id (기본값: openai/gpt-4o-mini)
  * - GEMINI_MODEL: Gemini model id (기본값: gemini-2.5-flash)
  *
@@ -23,32 +24,38 @@ const PROVIDERS = new Set(['github', 'gemini']);
 const GITHUB_MODELS_ENDPOINT = 'https://models.github.ai/inference/chat/completions';
 const DEFAULT_GITHUB_MODEL = 'openai/gpt-4o-mini';
 const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
-const FALLBACK_NUMBERS = [3, 7, 12, 23, 31, 42];
-const PROMPT =
-  '로또 6/45 번호 1게임을 추천해 주세요. 1부터 45 사이 숫자 6개를 중복 없이 골라서 쉼표로만 답변해 주세요. 예: 3, 7, 12, 23, 31, 42';
+const FALLBACK_GAMES = [
+  [3, 7, 12, 23, 31, 42],
+  [4, 9, 16, 22, 33, 41],
+  [5, 10, 17, 24, 35, 44],
+  [6, 11, 18, 25, 32, 43],
+  [8, 13, 20, 27, 34, 45]
+];
 
 export default async ({ purchaseManual }) => {
   console.log('=== 05-ai-recommendation 시작 ===');
 
   const provider = normalizeProvider(process.env.AI_PROVIDER);
+  const gameCount = parseGameCount(process.env.AI_GAME_COUNT);
   console.log(`AI_PROVIDER=${provider}`);
+  console.log(`AI_GAME_COUNT=${gameCount}`);
 
-  let numbers = FALLBACK_NUMBERS;
+  let games = getFallbackGames(gameCount);
 
   try {
-    const recommended = await requestAiNumbers(provider);
+    const recommended = await requestAiGames(provider, gameCount);
     if (recommended) {
-      numbers = recommended;
-      console.log('AI 추천 번호를 사용합니다:', numbers);
+      games = recommended;
+      console.log('AI 추천 번호를 사용합니다:', games);
     } else {
-      console.log('AI 응답을 해석하지 못해 기본 번호를 사용합니다:', numbers);
+      console.log('AI 응답을 해석하지 못해 기본 번호를 사용합니다:', games);
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.log(`AI 추천 호출에 실패해 기본 번호를 사용합니다: ${message}`);
   }
 
-  const purchased = await purchaseManual([numbers]);
+  const purchased = await purchaseManual(games);
   console.log('구매 완료:', purchased);
 };
 
@@ -63,13 +70,32 @@ export function normalizeProvider(value) {
   return normalized;
 }
 
-async function requestAiNumbers(provider) {
-  const text = provider === 'gemini' ? await requestGeminiText() : await requestGitHubModelsText();
-  console.log('AI 응답:', text);
-  return parseRecommendedNumbers(text);
+export function parseGameCount(value) {
+  const parsed = Number.parseInt(value || '1', 10);
+  if (!Number.isFinite(parsed) || Number.isNaN(parsed)) {
+    return 1;
+  }
+
+  return Math.max(1, Math.min(5, parsed));
 }
 
-async function requestGitHubModelsText() {
+function getPrompt(gameCount) {
+  return (
+    `로또 6/45 번호 ${gameCount}게임을 추천해 주세요. ` +
+    '각 게임은 1부터 45 사이 숫자 6개를 중복 없이 골라 주세요. ' +
+    '다른 설명 없이 한 줄에 한 게임씩 쉼표로만 답변해 주세요. 예:\n' +
+    '3, 7, 12, 23, 31, 42\n' +
+    '4, 9, 16, 22, 33, 41'
+  );
+}
+
+async function requestAiGames(provider, gameCount) {
+  const text = provider === 'gemini' ? await requestGeminiText(gameCount) : await requestGitHubModelsText(gameCount);
+  console.log('AI 응답:', text);
+  return parseRecommendedGames(text, gameCount);
+}
+
+async function requestGitHubModelsText(gameCount) {
   const token = process.env.GITHUB_TOKEN;
   if (!token) {
     throw new Error('GITHUB_TOKEN이 없습니다. workflow에서 github-token 또는 env.GITHUB_TOKEN을 연결해 주세요.');
@@ -86,11 +112,11 @@ async function requestGitHubModelsText() {
       messages: [
         {
           role: 'user',
-          content: PROMPT
+          content: getPrompt(gameCount)
         }
       ],
       temperature: 1,
-      max_tokens: 80
+      max_tokens: 160
     })
   });
 
@@ -101,7 +127,7 @@ async function requestGitHubModelsText() {
   return extractGitHubModelsText(await response.json());
 }
 
-async function requestGeminiText() {
+async function requestGeminiText(gameCount) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error('GEMINI_API_KEY가 없습니다. workflow env에 secrets.GEMINI_API_KEY를 연결해 주세요.');
@@ -117,7 +143,7 @@ async function requestGeminiText() {
     body: JSON.stringify({
       contents: [
         {
-          parts: [{ text: PROMPT }]
+          parts: [{ text: getPrompt(gameCount) }]
         }
       ]
     })
@@ -144,8 +170,28 @@ export function extractGeminiText(data) {
   );
 }
 
+export function parseRecommendedGames(text, gameCount) {
+  const games = text
+    .split(/\r?\n/)
+    .map(line => parseRecommendedNumbers(line))
+    .filter(Boolean);
+
+  if (games.length < gameCount) {
+    return null;
+  }
+
+  const selectedGames = games.slice(0, gameCount);
+  const uniqueGameKeys = new Set(selectedGames.map(nums => nums.join(',')));
+  if (uniqueGameKeys.size !== selectedGames.length) {
+    return null;
+  }
+
+  return selectedGames;
+}
+
 export function parseRecommendedNumbers(text) {
-  const numbers = text
+  const normalizedText = text.replace(/^\s*\d+[\).:-]\s*/, '');
+  const numbers = normalizedText
     .match(/\d+/g)
     ?.map(Number)
     .filter(num => Number.isInteger(num) && num >= 1 && num <= 45);
@@ -161,4 +207,8 @@ export function parseRecommendedNumbers(text) {
   }
 
   return uniqueNumbers;
+}
+
+function getFallbackGames(gameCount) {
+  return FALLBACK_GAMES.slice(0, gameCount);
 }
