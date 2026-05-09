@@ -1,4 +1,5 @@
 import * as core from '@actions/core';
+import * as fs from 'fs/promises';
 import * as path from 'path';
 import { pathToFileURL } from 'url';
 import { BrowserSession } from './core/browser';
@@ -21,8 +22,41 @@ interface WorkflowApi {
 
 type CustomWorkflow = (api: WorkflowApi) => Promise<unknown> | unknown;
 
+const ALLOWED_WORKFLOW_EXTENSIONS = new Set(['.js', '.mjs', '.cjs']);
+
+function isPathInside(parent: string, candidate: string): boolean {
+  const relativePath = path.relative(parent, candidate);
+  return relativePath === '' || (!relativePath.startsWith('..') && !path.isAbsolute(relativePath));
+}
+
+async function resolveWorkflowPath(workflowFile: string): Promise<string> {
+  if (workflowFile.includes('\0')) {
+    throw new Error('[Main] Invalid custom workflow path: null bytes are not allowed');
+  }
+
+  const workspaceRoot = path.resolve(process.env.GITHUB_WORKSPACE || process.cwd());
+  const resolvedPath = path.resolve(workspaceRoot, workflowFile);
+  const displayPath = JSON.stringify(workflowFile);
+
+  if (!isPathInside(workspaceRoot, resolvedPath)) {
+    throw new Error(`[Main] Invalid custom workflow path ${displayPath}: path must stay inside the workspace`);
+  }
+
+  const extension = path.extname(resolvedPath).toLowerCase();
+  if (!ALLOWED_WORKFLOW_EXTENSIONS.has(extension)) {
+    throw new Error(`[Main] Invalid custom workflow path ${displayPath}: only .js, .mjs, and .cjs files are allowed`);
+  }
+
+  const stats = await fs.stat(resolvedPath).catch(() => undefined);
+  if (!stats?.isFile()) {
+    throw new Error(`[Main] Invalid custom workflow path ${displayPath}: file does not exist`);
+  }
+
+  return resolvedPath;
+}
+
 async function loadWorkflow(workflowFile: string): Promise<CustomWorkflow> {
-  const resolvedPath = path.resolve(process.cwd(), workflowFile);
+  const resolvedPath = await resolveWorkflowPath(workflowFile);
 
   try {
     const workflowModule = await import(pathToFileURL(resolvedPath).href);
@@ -61,6 +95,9 @@ async function run() {
     // Get inputs
     const id = core.getInput('dhlottery-id', { required: true });
     const pwd = core.getInput('dhlottery-password', { required: true });
+    core.setSecret(id);
+    core.setSecret(pwd);
+
     const amount = parseInt(core.getInput('game-count') || '5');
     const workflowFile = core.getInput('workflow-file');
 

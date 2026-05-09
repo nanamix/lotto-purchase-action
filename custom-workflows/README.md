@@ -43,6 +43,7 @@ workflow-file: custom-workflows/01-auto-basic.js
 
 - 권장: `.js` 또는 `.mjs` + `export default async (api) => {}`
 - 대안: `.cjs` + `module.exports = async (api) => {}`
+- 보안상 `workflow-file`은 체크아웃된 워크스페이스 내부의 `.js`, `.mjs`, `.cjs` 파일만 사용할 수 있습니다.
 
 ## 사용 가능한 API
 

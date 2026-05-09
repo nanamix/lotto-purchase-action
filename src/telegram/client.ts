@@ -6,6 +6,14 @@ const TELEGRAM_API_BASE = 'https://api.telegram.org/bot';
 function getConfig() {
   const token = core.getInput('telegram-bot-token');
   const chatId = core.getInput('telegram-chat-id');
+
+  if (token) {
+    core.setSecret(token);
+  }
+  if (chatId) {
+    core.setSecret(chatId);
+  }
+
   return { token, chatId };
 }
 

@@ -16,6 +16,7 @@ export function getOctokit() {
     );
   }
 
+  core.setSecret(token);
   octokitInstance = github.getOctokit(token);
   return octokitInstance;
 }

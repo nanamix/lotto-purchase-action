@@ -23,7 +23,7 @@ inputs:
     default: '5'
   workflow-file:
     required: false
-    description: '커스텀 워크플로우 스크립트 경로 (예: ".github/workflows/lotto-workflow.js")'
+    description: '커스텀 워크플로우 스크립트 경로. 체크아웃된 워크스페이스 내부의 .js/.mjs/.cjs 파일만 허용됩니다.'
     default: ''
   telegram-bot-token:
     required: false
