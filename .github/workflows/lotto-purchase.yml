@@ -20,10 +20,9 @@ on:
       ai-provider:
         description: 'AI 추천 provider (ai-recommendation에서 사용)'
         required: true
-        default: 'copilot'
+        default: 'github'
         type: choice
         options:
-          - copilot
           - github
           - gemini
       game-count:
@@ -92,6 +91,6 @@ jobs:
           workflow-file: ${{ steps.purchase-workflow.outputs.workflow-file }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          AI_PROVIDER: ${{ inputs.ai-provider || 'copilot' }}
+          AI_PROVIDER: ${{ inputs.ai-provider || 'github' }}
           AI_GAME_COUNT: ${{ inputs.game-count || '5' }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
