@@ -1,13 +1,13 @@
 # 커스텀 워크플로우 가이드
 
-이 폴더에는 바로 복사해서 쓰기 쉬운 예제 4개가 들어 있습니다.
+이 폴더에는 바로 복사해서 쓰기 쉬운 예제 5개가 들어 있습니다.
 
 모든 예제는 아래 형식을 따릅니다.
 
 - `export default async (api) => {}`
 - 성공한 구매는 실행 종료 후 GitHub Issue 1개로 정리됩니다.
 
-처음이면 보통 `01 -> 02 -> 03 -> 04` 순서로 보는 것을 추천합니다.
+처음이면 보통 `01 -> 02 -> 03 -> 04 -> 05` 순서로 보는 것을 추천합니다.
 
 ## 어떤 예제를 쓰면 되나
 
@@ -17,6 +17,7 @@
 | `02-manual-fixed-numbers.js`  | 고정 번호를 직접 넣어 수동 구매할 때      | `NUMBERS`                           |
 | `03-auto-plus-manual.js`      | 자동 구매와 수동 구매를 함께 쓰고 싶을 때 | `AUTO_GAME_COUNT`, `MANUAL_NUMBERS` |
 | `04-gemini-recommendation.js` | Gemini API로 추천 번호를 받아 구매할 때   | `MODEL`, `FALLBACK_NUMBERS`         |
+| `05-ai-recommendation.js`     | GitHub Models 또는 Gemini 추천 번호 구매  | `AI_PROVIDER`, 모델 환경변수        |
 
 ## workflow에 연결하는 방법
 
@@ -37,6 +38,8 @@
 workflow-file: custom-workflows/01-auto-basic.js
 # workflow-file: custom-workflows/02-manual-fixed-numbers.js
 # workflow-file: custom-workflows/03-auto-plus-manual.js
+# workflow-file: custom-workflows/04-gemini-recommendation.js
+# workflow-file: custom-workflows/05-ai-recommendation.js
 ```
 
 ## 지원 포맷
@@ -104,11 +107,54 @@ const manualNumbers = generateExcluding(excluded, 3);
 
 Gemini 응답이 비어 있거나 형식이 맞지 않으면 예제 파일 안의 `FALLBACK_NUMBERS`를 사용합니다.
 
+## AI 추천 통합 예제
+
+`05-ai-recommendation.js`는 `AI_PROVIDER`로 GitHub Models 또는 Gemini를 선택합니다. `github`, `github-models`, `copilot`은 모두 GitHub Models 호출로 처리됩니다.
+
+### GitHub Models
+
+GitHub Models는 별도 API key 없이 `GITHUB_TOKEN`을 사용합니다. workflow 권한에 `models: read`가 필요합니다.
+
+```yaml
+permissions:
+  contents: read
+  issues: write
+  models: read
+
+- uses: ./
+  with:
+    dhlottery-id: ${{ secrets.DHLOTTERY_ID }}
+    dhlottery-password: ${{ secrets.DHLOTTERY_PASSWORD }}
+    github-token: ${{ github.token }}
+    workflow-file: custom-workflows/05-ai-recommendation.js
+  env:
+    AI_PROVIDER: github
+    GITHUB_MODELS_MODEL: openai/gpt-4o-mini
+```
+
+### Gemini
+
+```yaml
+- uses: ./
+  with:
+    dhlottery-id: ${{ secrets.DHLOTTERY_ID }}
+    dhlottery-password: ${{ secrets.DHLOTTERY_PASSWORD }}
+    github-token: ${{ github.token }}
+    workflow-file: custom-workflows/05-ai-recommendation.js
+  env:
+    AI_PROVIDER: gemini
+    GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+    GEMINI_MODEL: gemini-2.5-flash
+```
+
+AI 응답이 비어 있거나 형식이 맞지 않으면 예제 파일 안의 `FALLBACK_NUMBERS`를 사용합니다.
+
 ## 작성 팁
 
 - 가장 단순한 시작점은 `01-auto-basic.js`입니다.
 - 번호를 직접 넣고 싶으면 `02-manual-fixed-numbers.js`를 복사해서 배열만 바꾸면 됩니다.
 - 여러 전략을 섞고 싶으면 `03-auto-plus-manual.js`를 기준으로 수정하면 됩니다.
+- AI 추천을 기본으로 쓰고 싶으면 `05-ai-recommendation.js`에서 `AI_PROVIDER`만 바꿔보면 됩니다.
 - `purchaseAuto`와 `purchaseManual`은 한 workflow 안에서 여러 번 호출해도 됩니다.
 
 ## 자주 막히는 경우

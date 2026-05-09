@@ -9,6 +9,7 @@ on:
 permissions:
   contents: read
   issues: write
+  models: read
 
 jobs:
   purchase:
@@ -33,3 +34,9 @@ jobs:
           workflow-file: custom-workflows/01-auto-basic.js
           # workflow-file: custom-workflows/02-manual-fixed-numbers.js
           # workflow-file: custom-workflows/03-auto-plus-manual.js
+          # workflow-file: custom-workflows/04-gemini-recommendation.js
+          # workflow-file: custom-workflows/05-ai-recommendation.js
+        env:
+          AI_PROVIDER: github
+          # AI_PROVIDER: gemini
+          # GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
