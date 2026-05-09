@@ -1,7 +1,7 @@
 /**
  * 05. AI 추천 번호 예제
  *
- * GitHub Models 또는 Gemini API로 추천 번호 1~5게임을 받아 수동 구매합니다.
+ * GitHub Models, OpenAI API, Gemini API로 추천 번호 1~5게임을 받아 수동 구매합니다.
  * 응답이 비어 있거나 형식이 맞지 않으면 FALLBACK_GAMES를 사용합니다.
  *
  * GitHub Models 설정:
@@ -12,17 +12,24 @@
  * - GitHub Secrets에 GEMINI_API_KEY 추가
  * - workflow yml에서 env: GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }} 설정
  *
+ * OpenAI 설정:
+ * - GitHub Secrets에 OPENAI_API_KEY 추가
+ * - workflow yml에서 env: OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }} 설정
+ *
  * 환경변수:
- * - AI_PROVIDER: github 또는 gemini (기본값: github)
+ * - AI_PROVIDER: github, openai, gemini (기본값: github)
  * - AI_GAME_COUNT: 구매 게임 수, 1~5 (기본값: 1)
  * - GITHUB_MODELS_MODEL: GitHub Models model id (기본값: openai/gpt-5)
+ * - OPENAI_MODEL: OpenAI model id (기본값: gpt-5)
  * - GEMINI_MODEL: Gemini model id (기본값: gemini-2.5-flash)
  *
  * 이 실행이 끝나면 구매 결과는 GitHub Issue 1개로 정리됩니다.
  */
-const PROVIDERS = new Set(['github', 'gemini']);
+const PROVIDERS = new Set(['github', 'openai', 'gemini']);
 const GITHUB_MODELS_ENDPOINT = 'https://models.github.ai/inference/chat/completions';
+const OPENAI_ENDPOINT = 'https://api.openai.com/v1/chat/completions';
 const DEFAULT_GITHUB_MODEL = 'openai/gpt-5';
+const DEFAULT_OPENAI_MODEL = 'gpt-5';
 const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
 const FALLBACK_GAMES = [
   [3, 7, 12, 23, 31, 42],
@@ -64,7 +71,7 @@ export function normalizeProvider(value) {
   const normalized = provider === 'github-models' || provider === 'copilot' ? 'github' : provider;
 
   if (!PROVIDERS.has(normalized)) {
-    throw new Error('AI_PROVIDER는 github 또는 gemini만 사용할 수 있습니다.');
+    throw new Error('AI_PROVIDER는 github, openai, gemini만 사용할 수 있습니다.');
   }
 
   return normalized;
@@ -95,8 +102,7 @@ async function requestAiGames(provider, gameCount) {
 
   for (const currentProvider of providers) {
     try {
-      const text =
-        currentProvider === 'gemini' ? await requestGeminiText(gameCount) : await requestGitHubModelsText(gameCount);
+      const text = await requestProviderText(currentProvider, gameCount);
       console.log('AI 응답:', text);
       return parseRecommendedGames(text, gameCount);
     } catch (error) {
@@ -107,6 +113,18 @@ async function requestAiGames(provider, gameCount) {
   }
 
   throw lastError ?? new Error('AI 추천 호출에 실패했습니다.');
+}
+
+async function requestProviderText(provider, gameCount) {
+  if (provider === 'gemini') {
+    return requestGeminiText(gameCount);
+  }
+
+  if (provider === 'openai') {
+    return requestOpenAiText(gameCount);
+  }
+
+  return requestGitHubModelsText(gameCount);
 }
 
 async function requestGitHubModelsText(gameCount) {
@@ -139,6 +157,38 @@ async function requestGitHubModelsText(gameCount) {
   }
 
   return extractGitHubModelsText(await response.json());
+}
+
+async function requestOpenAiText(gameCount) {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error('OPENAI_API_KEY가 없습니다. workflow env에 secrets.OPENAI_API_KEY를 연결해 주세요.');
+  }
+
+  const response = await fetch(OPENAI_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      model: process.env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL,
+      messages: [
+        {
+          role: 'user',
+          content: getPrompt(gameCount)
+        }
+      ],
+      temperature: 1,
+      max_tokens: 160
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(await buildHttpErrorMessage('OpenAI API', response));
+  }
+
+  return extractOpenAiText(await response.json());
 }
 
 async function requestGeminiText(gameCount) {
@@ -189,6 +239,10 @@ export async function buildHttpErrorMessage(apiName, response) {
 }
 
 export function extractGitHubModelsText(data) {
+  return data?.choices?.[0]?.message?.content ?? '';
+}
+
+export function extractOpenAiText(data) {
   return data?.choices?.[0]?.message?.content ?? '';
 }
 

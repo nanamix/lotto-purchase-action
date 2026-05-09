@@ -4,6 +4,7 @@ import {
   buildHttpErrorMessage,
   extractGeminiText,
   extractGitHubModelsText,
+  extractOpenAiText,
   getProviderSequence,
   normalizeProvider,
   parseGameCount,
@@ -57,17 +58,19 @@ test('normalizeProvider defaults to github and supports gemini alias', () => {
   assert.equal(normalizeProvider('GitHub'), 'github');
   assert.equal(normalizeProvider('github-models'), 'github');
   assert.equal(normalizeProvider('copilot'), 'github');
+  assert.equal(normalizeProvider('OPENAI'), 'openai');
   assert.equal(normalizeProvider('GEMINI'), 'gemini');
 });
 
 test('normalizeProvider rejects unknown providers', () => {
-  assert.throws(() => normalizeProvider('openai'), /AI_PROVIDER/);
+  assert.throws(() => normalizeProvider('anthropic'), /AI_PROVIDER/);
 });
 
 test('getProviderSequence tries gemini after github when a Gemini key is available', () => {
   assert.deepEqual(getProviderSequence('github', { GEMINI_API_KEY: 'key' }), ['github', 'gemini']);
   assert.deepEqual(getProviderSequence('github', {}), ['github']);
   assert.deepEqual(getProviderSequence('gemini', { GEMINI_API_KEY: 'key' }), ['gemini']);
+  assert.deepEqual(getProviderSequence('openai', { OPENAI_API_KEY: 'key', GEMINI_API_KEY: 'key' }), ['openai']);
 });
 
 test('buildHttpErrorMessage includes response body details', async () => {
@@ -81,6 +84,14 @@ test('buildHttpErrorMessage includes response body details', async () => {
 
 test('extractGitHubModelsText reads the first chat completion message', () => {
   const text = extractGitHubModelsText({
+    choices: [{ message: { content: '1, 2, 3, 4, 5, 6' } }]
+  });
+
+  assert.equal(text, '1, 2, 3, 4, 5, 6');
+});
+
+test('extractOpenAiText reads the first chat completion message', () => {
+  const text = extractOpenAiText({
     choices: [{ message: { content: '1, 2, 3, 4, 5, 6' } }]
   });
 

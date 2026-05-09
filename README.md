@@ -49,6 +49,7 @@ GitHub 저장소에서 **Settings -> Secrets and variables -> Actions -> Reposit
 선택:
 
 - `GEMINI_API_KEY`: Gemini 추천 번호 구매 또는 GitHub Models 실패 시 Gemini fallback
+- `OPENAI_API_KEY`: 별도 OpenAI API로 추천 번호를 받을 때 사용
 - `TELEGRAM_BOT_TOKEN`: 텔레그램 알림용 봇 토큰
 - `TELEGRAM_CHAT_ID`: 텔레그램 알림용 채팅 ID
 
@@ -91,6 +92,7 @@ GitHub에서 바로 실행할 수 있습니다.
   - `gemini-recommendation`: Gemini 추천 번호 구매
 - `ai-provider`
   - `github`: GitHub Models API 사용
+  - `openai`: 별도 OpenAI API 사용
   - `gemini`: Gemini API 사용
 - `game-count`
   - `1`~`5`
@@ -124,6 +126,20 @@ env:
   GITHUB_MODELS_MODEL: openai/gpt-5
 ```
 
+### OpenAI API
+
+별도 OpenAI API를 사용하려면 `OPENAI_API_KEY` secret을 등록하고 수동 실행에서 `ai-provider=openai`를 선택하세요.
+
+직접 env로 지정하는 경우:
+
+```yaml
+env:
+  AI_PROVIDER: openai
+  AI_GAME_COUNT: '5'
+  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+  OPENAI_MODEL: gpt-5
+```
+
 ### Gemini
 
 Gemini를 사용하려면 `GEMINI_API_KEY` secret을 등록하고 수동 실행에서 `ai-provider=gemini`를 선택하세요.
@@ -148,7 +164,7 @@ env:
 - `custom-workflows/02-manual-fixed-numbers.js`: 고정 번호 수동 구매
 - `custom-workflows/03-auto-plus-manual.js`: 자동 + 수동 조합 구매
 - `custom-workflows/04-gemini-recommendation.js`: Gemini 추천 번호 구매
-- `custom-workflows/05-ai-recommendation.js`: GitHub Models 또는 Gemini 추천 번호 1~5게임 구매
+- `custom-workflows/05-ai-recommendation.js`: GitHub Models, OpenAI API, Gemini 추천 번호 1~5게임 구매
 
 커스텀 워크플로우는 체크아웃된 워크스페이스 내부의 `.js`, `.mjs`, `.cjs` 파일만 사용할 수 있습니다.
 
