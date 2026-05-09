@@ -1,6 +1,7 @@
 import { getOctokit, getRepo, getContext } from './client';
 import { fetchWinningNumbers, checkWinning, getCheckWinningLink } from '../utils/winning';
 import { getLastLottoRound, getNextLottoRound } from '../utils/rounds';
+import * as core from '@actions/core';
 
 // Labels for GitHub Issues
 const LABELS = {
@@ -18,7 +19,11 @@ export async function initLabels(): Promise<void> {
   const octokit = getOctokit();
   const repo = getRepo();
 
-  const allLabels = (await octokit.rest.issues.listLabelsForRepo(repo)).data;
+  const allLabels = await listLabelsForRepoOrSkip(octokit, repo);
+  if (!allLabels) {
+    return;
+  }
+
   const existingLabelNames = new Set(allLabels.map(label => label.name));
 
   // Only ensure the labels used by this action exist.
@@ -70,13 +75,24 @@ export async function createConsolidatedIssue(purchases: PurchaseMetadata[]): Pr
   const totalGames = purchases.reduce((sum, p) => sum + p.numbers.length, 0);
 
   const body = buildConsolidatedIssueBody(purchases, round, workflowRun);
+  const title = `제${round}회 ${totalGames}게임`;
 
-  await octokit.rest.issues.create({
-    ...repo,
-    title: `제${round}회 ${totalGames}게임`,
-    body,
-    labels: [LABELS.waiting]
-  });
+  try {
+    await octokit.rest.issues.create({
+      ...repo,
+      title,
+      body,
+      labels: [LABELS.waiting]
+    });
+  } catch (error) {
+    if (isIssuesDisabledError(error)) {
+      console.warn('[Issues] Issues are disabled. Writing purchase record to job summary instead.');
+      await writePurchaseSummary(title, body);
+      return;
+    }
+
+    throw error;
+  }
 
   console.log(
     `Created consolidated issue for ${purchases.length} purchases (${totalGames} total games) for round ${round}`
@@ -88,14 +104,23 @@ export async function getWaitingIssues() {
   const octokit = getOctokit();
   const repo = getRepo();
 
-  const issues = await octokit.rest.issues.listForRepo({
-    ...repo,
-    state: 'open',
-    labels: LABELS.waiting,
-    per_page: 100
-  });
+  try {
+    const issues = await octokit.rest.issues.listForRepo({
+      ...repo,
+      state: 'open',
+      labels: LABELS.waiting,
+      per_page: 100
+    });
 
-  return issues.data;
+    return issues.data;
+  } catch (error) {
+    if (isIssuesDisabledError(error)) {
+      console.warn('[Issues] Issues are disabled. Skipping previous winning issue checks.');
+      return [];
+    }
+
+    throw error;
+  }
 }
 
 // Winning result for an issue
@@ -342,4 +367,35 @@ function buildConsolidatedIssueBody(purchases: PurchaseMetadata[], round: number
   });
 
   return header + sections.join('\n');
+}
+
+async function listLabelsForRepoOrSkip(
+  octokit: ReturnType<typeof getOctokit>,
+  repo: ReturnType<typeof getRepo>
+): Promise<Array<{ name: string }> | null> {
+  try {
+    return (await octokit.rest.issues.listLabelsForRepo(repo)).data;
+  } catch (error) {
+    if (isIssuesDisabledError(error)) {
+      console.warn('[Issues] Issues are disabled. Skipping label initialization.');
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+function isIssuesDisabledError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  const maybeError = error as { status?: number; response?: { data?: { message?: string } }; message?: string };
+  const message = maybeError.response?.data?.message ?? maybeError.message ?? '';
+  return maybeError.status === 410 && message.includes('Issues has been disabled');
+}
+
+async function writePurchaseSummary(title: string, body: string): Promise<void> {
+  await core.summary.addHeading(title, 2).addCodeBlock(body, 'text').write();
+  console.log('[Issues] Purchase record written to GitHub Actions job summary');
 }

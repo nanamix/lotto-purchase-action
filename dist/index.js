@@ -57133,7 +57133,10 @@ function initLabels() {
     return __awaiter$3(this, void 0, void 0, function* () {
         const octokit = getOctokit();
         const repo = getRepo();
-        const allLabels = (yield octokit.rest.issues.listLabelsForRepo(repo)).data;
+        const allLabels = yield listLabelsForRepoOrSkip(octokit, repo);
+        if (!allLabels) {
+            return;
+        }
         const existingLabelNames = new Set(allLabels.map(label => label.name));
         // Only ensure the labels used by this action exist.
         // Never delete unrelated repository labels such as bug/enhancement.
@@ -57152,7 +57155,19 @@ function createConsolidatedIssue(purchases) {
         // Calculate total games
         const totalGames = purchases.reduce((sum, p) => sum + p.numbers.length, 0);
         const body = buildConsolidatedIssueBody(purchases, round, workflowRun);
-        yield octokit.rest.issues.create(Object.assign(Object.assign({}, repo), { title: `제${round}회 ${totalGames}게임`, body, labels: [LABELS.waiting] }));
+        const title = `제${round}회 ${totalGames}게임`;
+        try {
+            yield octokit.rest.issues.create(Object.assign(Object.assign({}, repo), { title,
+                body, labels: [LABELS.waiting] }));
+        }
+        catch (error) {
+            if (isIssuesDisabledError(error)) {
+                console.warn('[Issues] Issues are disabled. Writing purchase record to job summary instead.');
+                yield writePurchaseSummary(title, body);
+                return;
+            }
+            throw error;
+        }
         console.log(`Created consolidated issue for ${purchases.length} purchases (${totalGames} total games) for round ${round}`);
     });
 }
@@ -57161,8 +57176,17 @@ function getWaitingIssues() {
     return __awaiter$3(this, void 0, void 0, function* () {
         const octokit = getOctokit();
         const repo = getRepo();
-        const issues = yield octokit.rest.issues.listForRepo(Object.assign(Object.assign({}, repo), { state: 'open', labels: LABELS.waiting, per_page: 100 }));
-        return issues.data;
+        try {
+            const issues = yield octokit.rest.issues.listForRepo(Object.assign(Object.assign({}, repo), { state: 'open', labels: LABELS.waiting, per_page: 100 }));
+            return issues.data;
+        }
+        catch (error) {
+            if (isIssuesDisabledError(error)) {
+                console.warn('[Issues] Issues are disabled. Skipping previous winning issue checks.');
+                return [];
+            }
+            throw error;
+        }
     });
 }
 // Check winning for all waiting issues
@@ -57339,6 +57363,35 @@ function buildConsolidatedIssueBody(purchases, round, workflowRun) {
             `link: ${link}`);
     });
     return header + sections.join('\n');
+}
+function listLabelsForRepoOrSkip(octokit, repo) {
+    return __awaiter$3(this, void 0, void 0, function* () {
+        try {
+            return (yield octokit.rest.issues.listLabelsForRepo(repo)).data;
+        }
+        catch (error) {
+            if (isIssuesDisabledError(error)) {
+                console.warn('[Issues] Issues are disabled. Skipping label initialization.');
+                return null;
+            }
+            throw error;
+        }
+    });
+}
+function isIssuesDisabledError(error) {
+    var _a, _b, _c, _d;
+    if (!error || typeof error !== 'object') {
+        return false;
+    }
+    const maybeError = error;
+    const message = (_d = (_c = (_b = (_a = maybeError.response) === null || _a === void 0 ? void 0 : _a.data) === null || _b === void 0 ? void 0 : _b.message) !== null && _c !== void 0 ? _c : maybeError.message) !== null && _d !== void 0 ? _d : '';
+    return maybeError.status === 410 && message.includes('Issues has been disabled');
+}
+function writePurchaseSummary(title, body) {
+    return __awaiter$3(this, void 0, void 0, function* () {
+        yield coreExports.summary.addHeading(title, 2).addCodeBlock(body, 'text').write();
+        console.log('[Issues] Purchase record written to GitHub Actions job summary');
+    });
 }
 
 const TELEGRAM_API_BASE = 'https://api.telegram.org/bot';
