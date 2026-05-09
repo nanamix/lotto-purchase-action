@@ -4,7 +4,28 @@ on:
     # 매주 일요일 UTC 03:00 (한국 시간 일요일 12:00)
     # https://elmah.io/tools/cron-parser/
     - cron: '0 3 * * 0'
-  workflow_dispatch: # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      purchase-profile:
+        description: '구매 방식 선택'
+        required: true
+        default: 'ai-recommendation'
+        type: choice
+        options:
+          - ai-recommendation
+          - auto-basic
+          - manual-fixed
+          - auto-plus-manual
+          - gemini-recommendation
+      ai-provider:
+        description: 'AI 추천 provider (ai-recommendation에서 사용)'
+        required: true
+        default: 'copilot'
+        type: choice
+        options:
+          - copilot
+          - github
+          - gemini
 
 permissions:
   contents: read
@@ -22,6 +43,32 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Resolve purchase workflow
+        id: purchase-workflow
+        shell: bash
+        run: |
+          case "${{ inputs.purchase-profile || 'ai-recommendation' }}" in
+            ai-recommendation)
+              echo "workflow-file=custom-workflows/05-ai-recommendation.js" >> "$GITHUB_OUTPUT"
+              ;;
+            auto-basic)
+              echo "workflow-file=custom-workflows/01-auto-basic.js" >> "$GITHUB_OUTPUT"
+              ;;
+            manual-fixed)
+              echo "workflow-file=custom-workflows/02-manual-fixed-numbers.js" >> "$GITHUB_OUTPUT"
+              ;;
+            auto-plus-manual)
+              echo "workflow-file=custom-workflows/03-auto-plus-manual.js" >> "$GITHUB_OUTPUT"
+              ;;
+            gemini-recommendation)
+              echo "workflow-file=custom-workflows/04-gemini-recommendation.js" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "Unknown purchase-profile: ${{ inputs.purchase-profile }}" >&2
+              exit 1
+              ;;
+          esac
+
       - name: Custom purchase workflow
         uses: ./
         with:
@@ -30,14 +77,8 @@ jobs:
           github-token: ${{ github.token }}
           telegram-bot-token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           telegram-chat-id: ${{ secrets.TELEGRAM_CHAT_ID }}
-          # 아래 예제 중 하나만 활성화해서 사용하세요.
-          workflow-file: custom-workflows/01-auto-basic.js
-          # workflow-file: custom-workflows/02-manual-fixed-numbers.js
-          # workflow-file: custom-workflows/03-auto-plus-manual.js
-          # workflow-file: custom-workflows/04-gemini-recommendation.js
-          # workflow-file: custom-workflows/05-ai-recommendation.js
+          workflow-file: ${{ steps.purchase-workflow.outputs.workflow-file }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          AI_PROVIDER: github
-          # AI_PROVIDER: gemini
-          # GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          AI_PROVIDER: ${{ inputs.ai-provider || 'copilot' }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}

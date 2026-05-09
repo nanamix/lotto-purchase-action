@@ -19,20 +19,28 @@
 | `04-gemini-recommendation.js` | Gemini API로 추천 번호를 받아 구매할 때   | `MODEL`, `FALLBACK_NUMBERS`         |
 | `05-ai-recommendation.js`     | GitHub Models 또는 Gemini 추천 번호 구매  | `AI_PROVIDER`, 모델 환경변수        |
 
-## workflow에 연결하는 방법
+## workflow에서 실행하는 방법
 
-`.github/workflows/lotto-purchase.yml`에서 `workflow-file` 한 줄만 바꿔서 사용하면 됩니다.
+`.github/workflows/lotto-purchase.yml`은 스케줄 실행과 수동 실행을 모두 지원합니다.
+
+- 스케줄 실행 기본값: `ai-recommendation` + `AI_PROVIDER=copilot`
+- 수동 실행: GitHub Actions의 `Run workflow` 화면에서 `purchase-profile`과 `ai-provider`를 선택
 
 ```yaml
-- uses: ./
-  with:
-    dhlottery-id: ${{ secrets.DHLOTTERY_ID }}
-    dhlottery-password: ${{ secrets.DHLOTTERY_PASSWORD }}
-    github-token: ${{ github.token }}
-    workflow-file: custom-workflows/01-auto-basic.js
+purchase-profile:
+  - ai-recommendation
+  - auto-basic
+  - manual-fixed
+  - auto-plus-manual
+  - gemini-recommendation
+
+ai-provider:
+  - copilot
+  - github
+  - gemini
 ```
 
-예제 교체 예시:
+커스텀 워크플로우를 직접 연결하는 경우에는 `workflow-file`에 아래 파일 중 하나를 넣으면 됩니다.
 
 ```yaml
 workflow-file: custom-workflows/01-auto-basic.js
@@ -129,7 +137,7 @@ permissions:
     workflow-file: custom-workflows/05-ai-recommendation.js
   env:
     GITHUB_TOKEN: ${{ github.token }}
-    AI_PROVIDER: github
+    AI_PROVIDER: copilot
     GITHUB_MODELS_MODEL: openai/gpt-4o-mini
 ```
 
