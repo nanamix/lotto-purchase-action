@@ -139,17 +139,9 @@ async function requestGitHubModelsText(gameCount) {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({
-      model: process.env.GITHUB_MODELS_MODEL || DEFAULT_GITHUB_MODEL,
-      messages: [
-        {
-          role: 'user',
-          content: getPrompt(gameCount)
-        }
-      ],
-      temperature: 1,
-      max_tokens: 160
-    })
+    body: JSON.stringify(
+      buildChatCompletionRequestBody(process.env.GITHUB_MODELS_MODEL || DEFAULT_GITHUB_MODEL, getPrompt(gameCount))
+    )
   });
 
   if (!response.ok) {
@@ -171,17 +163,9 @@ async function requestOpenAiText(gameCount) {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({
-      model: process.env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL,
-      messages: [
-        {
-          role: 'user',
-          content: getPrompt(gameCount)
-        }
-      ],
-      temperature: 1,
-      max_tokens: 160
-    })
+    body: JSON.stringify(
+      buildChatCompletionRequestBody(process.env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL, getPrompt(gameCount))
+    )
   });
 
   if (!response.ok) {
@@ -226,6 +210,38 @@ export function getProviderSequence(provider, env = process.env) {
   }
 
   return [provider];
+}
+
+export function buildChatCompletionRequestBody(model, prompt) {
+  const body = {
+    model,
+    messages: [
+      {
+        role: 'user',
+        content: prompt
+      }
+    ],
+    temperature: 1
+  };
+
+  if (usesMaxCompletionTokens(model)) {
+    return {
+      ...body,
+      max_completion_tokens: 160
+    };
+  }
+
+  return {
+    ...body,
+    max_tokens: 160
+  };
+}
+
+function usesMaxCompletionTokens(model) {
+  const normalized = String(model).toLowerCase();
+  const modelName = normalized.split('/').pop() || normalized;
+
+  return /^gpt-5(?:[.-]|$)/.test(modelName) || /^o\d+(?:[.-]|$)/.test(modelName);
 }
 
 export async function buildHttpErrorMessage(apiName, response) {

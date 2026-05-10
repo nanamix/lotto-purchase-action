@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   buildHttpErrorMessage,
+  buildChatCompletionRequestBody,
   extractGeminiText,
   extractGitHubModelsText,
   extractOpenAiText,
@@ -80,6 +81,20 @@ test('buildHttpErrorMessage includes response body details', async () => {
   });
 
   assert.equal(message, 'GitHub Models API 요청 실패 (403): {"message":"models access is disabled"}');
+});
+
+test('buildChatCompletionRequestBody uses max_completion_tokens for GPT-5 models', () => {
+  const body = buildChatCompletionRequestBody('openai/gpt-5', 'prompt');
+
+  assert.equal(body.max_completion_tokens, 160);
+  assert.equal('max_tokens' in body, false);
+});
+
+test('buildChatCompletionRequestBody keeps max_tokens for legacy chat models', () => {
+  const body = buildChatCompletionRequestBody('openai/gpt-4.1', 'prompt');
+
+  assert.equal(body.max_tokens, 160);
+  assert.equal('max_completion_tokens' in body, false);
 });
 
 test('extractGitHubModelsText reads the first chat completion message', () => {
