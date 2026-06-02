@@ -9,7 +9,8 @@
   "scripts": {
     "build": "rm -rf dist/**/**.js && rollup --config rollup.config.ts --configPlugin @rollup/plugin-typescript",
     "fix": "eslint src --fix && prettier --write \"src/**/*.{ts,tsx,js}\"",
-    "lint": "tsc --noEmit && eslint src && prettier --check \"src/**/*.{ts,tsx,js}\""
+    "lint": "tsc --noEmit && eslint src && prettier --check \"src/**/*.{ts,tsx,js}\"",
+    "ci": "npm run lint && npm run build"
   },
   "dependencies": {
     "@actions/core": "^2.0.3",
