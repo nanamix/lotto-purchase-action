@@ -31119,8 +31119,7 @@ class InsufficientBalanceError extends Error {
     constructor(details) {
         const shortage = Math.max(0, details.requiredAmount - details.currentBalance);
         const fullDetails = Object.assign(Object.assign({}, details), { shortage });
-        super(`예치금이 부족합니다. 현재 예치금: ${formatWon(fullDetails.currentBalance)}, ` +
-            `필요 금액: ${formatWon(fullDetails.requiredAmount)}, 부족 금액: ${formatWon(fullDetails.shortage)}`);
+        super(`예치금이 부족합니다. 현재 예치금: ${formatWon(fullDetails.currentBalance)}`);
         this.name = 'InsufficientBalanceError';
         this.details = fullDetails;
     }
@@ -57476,18 +57475,13 @@ function buildPurchaseFailureIssueBody(details, message, workflowRun) {
     return (`status: failed\n` +
         `reason: insufficient_balance\n` +
         `timestamp: ${new Date().toISOString()}\n` +
-        `requested_games: ${details.requestedGames}\n` +
         `current_balance: ${details.currentBalance}\n` +
-        `required_amount: ${details.requiredAmount}\n` +
-        `shortage: ${details.shortage}\n` +
         (workflowRun ? `workflow_run: ${workflowRun}\n` : '') +
         `\n` +
         `## 구매 실패 사유\n` +
         `${message}\n\n` +
         `## 금액\n` +
-        `- 현재 예치금: ${formatWon(details.currentBalance)}\n` +
-        `- 필요 금액: ${formatWon(details.requiredAmount)}\n` +
-        `- 부족 금액: ${formatWon(details.shortage)}\n`);
+        `- 현재 예치금: ${formatWon(details.currentBalance)}\n`);
 }
 
 const TELEGRAM_API_BASE = 'https://api.telegram.org/bot';
@@ -57565,12 +57559,7 @@ function notifyPurchaseFailure(details, message) {
     return __awaiter$3(this, void 0, void 0, function* () {
         if (!isEnabled())
             return;
-        const notification = `⚠️ *로또 구매 실패*\n\n` +
-            `${message}\n\n` +
-            `요청 게임 수: ${details.requestedGames}게임\n` +
-            `현재 예치금: ${formatWon(details.currentBalance)}\n` +
-            `필요 금액: ${formatWon(details.requiredAmount)}\n` +
-            `부족 금액: ${formatWon(details.shortage)}`;
+        const notification = `⚠️ *로또 구매 실패*\n\n` + `${message}\n\n` + `현재 예치금: ${formatWon(details.currentBalance)}`;
         console.log('[Telegram] Sending purchase failure notification');
         yield sendMessage(notification);
     });

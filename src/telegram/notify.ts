@@ -52,12 +52,7 @@ export async function notifyPurchaseFailure(details: InsufficientBalanceDetails,
   if (!isEnabled()) return;
 
   const notification =
-    `⚠️ *로또 구매 실패*\n\n` +
-    `${message}\n\n` +
-    `요청 게임 수: ${details.requestedGames}게임\n` +
-    `현재 예치금: ${formatWon(details.currentBalance)}\n` +
-    `필요 금액: ${formatWon(details.requiredAmount)}\n` +
-    `부족 금액: ${formatWon(details.shortage)}`;
+    `⚠️ *로또 구매 실패*\n\n` + `${message}\n\n` + `현재 예치금: ${formatWon(details.currentBalance)}`;
 
   console.log('[Telegram] Sending purchase failure notification');
   await sendMessage(notification);

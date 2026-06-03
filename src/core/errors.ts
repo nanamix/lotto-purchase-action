@@ -12,10 +12,7 @@ export class InsufficientBalanceError extends Error {
     const shortage = Math.max(0, details.requiredAmount - details.currentBalance);
     const fullDetails = { ...details, shortage };
 
-    super(
-      `예치금이 부족합니다. 현재 예치금: ${formatWon(fullDetails.currentBalance)}, ` +
-        `필요 금액: ${formatWon(fullDetails.requiredAmount)}, 부족 금액: ${formatWon(fullDetails.shortage)}`
-    );
+    super(`예치금이 부족합니다. 현재 예치금: ${formatWon(fullDetails.currentBalance)}`);
 
     this.name = 'InsufficientBalanceError';
     this.details = fullDetails;

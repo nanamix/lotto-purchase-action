@@ -373,17 +373,12 @@ function buildPurchaseFailureIssueBody(
     `status: failed\n` +
     `reason: insufficient_balance\n` +
     `timestamp: ${new Date().toISOString()}\n` +
-    `requested_games: ${details.requestedGames}\n` +
     `current_balance: ${details.currentBalance}\n` +
-    `required_amount: ${details.requiredAmount}\n` +
-    `shortage: ${details.shortage}\n` +
     (workflowRun ? `workflow_run: ${workflowRun}\n` : '') +
     `\n` +
     `## 구매 실패 사유\n` +
     `${message}\n\n` +
     `## 금액\n` +
-    `- 현재 예치금: ${formatWon(details.currentBalance)}\n` +
-    `- 필요 금액: ${formatWon(details.requiredAmount)}\n` +
-    `- 부족 금액: ${formatWon(details.shortage)}\n`
+    `- 현재 예치금: ${formatWon(details.currentBalance)}\n`
   );
 }
