@@ -31131,6 +31131,30 @@ function formatWon(amount) {
     return `${amount.toLocaleString('ko-KR')}원`;
 }
 
+function parseGameChoice(line) {
+    const numbers = line.slice(2, -1).split('|').filter(Boolean).map(Number);
+    if (numbers.length !== 6 ||
+        numbers.some(number => !Number.isInteger(number) || number < 1 || number > 45) ||
+        new Set(numbers).size !== 6) {
+        throw new Error(`Failed to parse purchased game: ${line}`);
+    }
+    return numbers;
+}
+function parsePurchaseApiResponse(payload) {
+    var _a, _b, _c, _d;
+    const response = payload;
+    const resultCode = String((_b = (_a = response === null || response === void 0 ? void 0 : response.result) === null || _a === void 0 ? void 0 : _a.resultCode) !== null && _b !== void 0 ? _b : '');
+    const resultMessage = ((_c = response === null || response === void 0 ? void 0 : response.result) === null || _c === void 0 ? void 0 : _c.resultMsg) || 'unknown';
+    if (resultCode !== '100') {
+        throw new Error(`Purchase failed: ${resultMessage} (code: ${resultCode || 'missing'})`);
+    }
+    const gameChoices = (_d = response.result) === null || _d === void 0 ? void 0 : _d.arrGameChoiceNum;
+    if (!Array.isArray(gameChoices) || gameChoices.length === 0 || gameChoices.some(line => typeof line !== 'string')) {
+        throw new Error('Purchase succeeded but returned no valid game choices');
+    }
+    return gameChoices.map(line => parseGameChoice(line));
+}
+
 dayjs.extend(utc);
 dayjs.extend(timezone);
 const LOTTO_GAME_PRICE = 1000;
@@ -31314,6 +31338,30 @@ function waitForPurchaseResults(page) {
         }
     });
 }
+function confirmPurchase(page) {
+    return __awaiter$3(this, void 0, void 0, function* () {
+        const purchaseResponsePromise = page
+            .waitForResponse(response => response.request().method() === 'POST' && response.url().includes('/olotto/game/execBuy.do'), { timeout: PURCHASE_RESULT_TIMEOUT })
+            .catch(() => null);
+        yield page.click(SELECTORS.PURCHASE_CONFIRM_BTN);
+        const purchaseResponse = yield purchaseResponsePromise;
+        if (purchaseResponse) {
+            if (!purchaseResponse.ok()) {
+                throw new Error(`Purchase API returned HTTP ${purchaseResponse.status()}`);
+            }
+            return parsePurchaseApiResponse(yield purchaseResponse.json());
+        }
+        console.warn('[Purchase] Purchase API response was not observed; falling back to legacy DOM result');
+        yield waitForPurchaseResults(page);
+        const result = yield page.$$eval(SELECTORS.PURCHASE_NUMBER_LIST, elems => {
+            return elems.map(it => Array.from(it.children).map(child => Number(child.innerHTML)));
+        });
+        if (result.length === 0 || result.some(nums => nums.length === 0 || nums.some(n => Number.isNaN(n)))) {
+            throw new Error('Failed to parse purchase results');
+        }
+        return result;
+    });
+}
 // Auto purchase function
 function purchaseAuto(session, amount) {
     return __awaiter$3(this, void 0, void 0, function* () {
@@ -31336,17 +31384,8 @@ function purchaseAuto(session, amount) {
         // Purchase
         console.log('[Purchase] Clicking purchase button');
         yield page.click(SELECTORS.PURCHASE_BTN);
-        yield page.click(SELECTORS.PURCHASE_CONFIRM_BTN);
-        // Wait for results
-        console.log('[Purchase] Waiting for purchase results');
-        yield waitForPurchaseResults(page);
-        // Parse results
-        const result = yield page.$$eval(SELECTORS.PURCHASE_NUMBER_LIST, elems => {
-            return elems.map(it => Array.from(it.children).map(child => Number(child.innerHTML)));
-        });
-        if (result.length === 0 || result.some(nums => nums.length === 0)) {
-            throw new Error('Failed to parse purchase results');
-        }
+        console.log('[Purchase] Confirming purchase and waiting for API result');
+        const result = yield confirmPurchase(page);
         console.log('[Purchase] Auto purchase completed:', result);
         return result;
     });
@@ -31402,17 +31441,8 @@ function purchaseManual(session, numbers) {
         // Purchase
         console.log('[Purchase] Clicking purchase button');
         yield page.click(SELECTORS.PURCHASE_BTN);
-        yield page.click(SELECTORS.PURCHASE_CONFIRM_BTN);
-        // Wait for results
-        console.log('[Purchase] Waiting for purchase results');
-        yield waitForPurchaseResults(page);
-        // Parse results
-        const result = yield page.$$eval(SELECTORS.PURCHASE_NUMBER_LIST, elems => {
-            return elems.map(it => Array.from(it.children).map(child => Number(child.innerHTML)));
-        });
-        if (result.length === 0 || result.some(nums => nums.length === 0 || nums.some(n => Number.isNaN(n)))) {
-            throw new Error('Failed to parse purchase results');
-        }
+        console.log('[Purchase] Confirming purchase and waiting for API result');
+        const result = yield confirmPurchase(page);
         console.log('[Purchase] Manual purchase completed:', result);
         return result;
     });

@@ -5,6 +5,7 @@ import type { Page } from 'playwright';
 import type { BrowserSession } from './browser';
 import { GOTO_TIMEOUT, PURCHASE_PAGE_READY_TIMEOUT, PURCHASE_RESULT_TIMEOUT, URLS, SELECTORS } from './config';
 import { InsufficientBalanceError, formatWon } from './errors';
+import { parsePurchaseApiResponse } from './purchase-result';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -213,6 +214,39 @@ async function waitForPurchaseResults(page: Page): Promise<void> {
   }
 }
 
+async function confirmPurchase(page: Page): Promise<number[][]> {
+  const purchaseResponsePromise = page
+    .waitForResponse(
+      response => response.request().method() === 'POST' && response.url().includes('/olotto/game/execBuy.do'),
+      { timeout: PURCHASE_RESULT_TIMEOUT }
+    )
+    .catch(() => null);
+
+  await page.click(SELECTORS.PURCHASE_CONFIRM_BTN);
+
+  const purchaseResponse = await purchaseResponsePromise;
+  if (purchaseResponse) {
+    if (!purchaseResponse.ok()) {
+      throw new Error(`Purchase API returned HTTP ${purchaseResponse.status()}`);
+    }
+
+    return parsePurchaseApiResponse(await purchaseResponse.json());
+  }
+
+  console.warn('[Purchase] Purchase API response was not observed; falling back to legacy DOM result');
+  await waitForPurchaseResults(page);
+
+  const result = await page.$$eval(SELECTORS.PURCHASE_NUMBER_LIST, elems => {
+    return elems.map(it => Array.from(it.children).map(child => Number((child as any).innerHTML)));
+  });
+
+  if (result.length === 0 || result.some(nums => nums.length === 0 || nums.some(n => Number.isNaN(n)))) {
+    throw new Error('Failed to parse purchase results');
+  }
+
+  return result;
+}
+
 // Auto purchase function
 export async function purchaseAuto(session: BrowserSession, amount: number): Promise<number[][]> {
   if (!session.isAuthenticated()) {
@@ -240,20 +274,9 @@ export async function purchaseAuto(session: BrowserSession, amount: number): Pro
   // Purchase
   console.log('[Purchase] Clicking purchase button');
   await page.click(SELECTORS.PURCHASE_BTN);
-  await page.click(SELECTORS.PURCHASE_CONFIRM_BTN);
 
-  // Wait for results
-  console.log('[Purchase] Waiting for purchase results');
-  await waitForPurchaseResults(page);
-
-  // Parse results
-  const result = await page.$$eval(SELECTORS.PURCHASE_NUMBER_LIST, elems => {
-    return elems.map(it => Array.from(it.children).map(child => Number((child as any).innerHTML)));
-  });
-
-  if (result.length === 0 || result.some(nums => nums.length === 0)) {
-    throw new Error('Failed to parse purchase results');
-  }
+  console.log('[Purchase] Confirming purchase and waiting for API result');
+  const result = await confirmPurchase(page);
 
   console.log('[Purchase] Auto purchase completed:', result);
   return result;
@@ -319,20 +342,9 @@ export async function purchaseManual(session: BrowserSession, numbers: number[][
   // Purchase
   console.log('[Purchase] Clicking purchase button');
   await page.click(SELECTORS.PURCHASE_BTN);
-  await page.click(SELECTORS.PURCHASE_CONFIRM_BTN);
 
-  // Wait for results
-  console.log('[Purchase] Waiting for purchase results');
-  await waitForPurchaseResults(page);
-
-  // Parse results
-  const result = await page.$$eval(SELECTORS.PURCHASE_NUMBER_LIST, elems => {
-    return elems.map(it => Array.from(it.children).map(child => Number((child as any).innerHTML)));
-  });
-
-  if (result.length === 0 || result.some(nums => nums.length === 0 || nums.some(n => Number.isNaN(n)))) {
-    throw new Error('Failed to parse purchase results');
-  }
+  console.log('[Purchase] Confirming purchase and waiting for API result');
+  const result = await confirmPurchase(page);
 
   console.log('[Purchase] Manual purchase completed:', result);
   return result;
