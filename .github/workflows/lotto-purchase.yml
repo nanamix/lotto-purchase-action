@@ -1,9 +1,9 @@
 name: 로또 구매 (수동 + 스케줄)
 on:
-  schedule:
+  # schedule:
     # 매주 일요일 UTC 03:00 (한국 시간 일요일 12:00)
     # https://elmah.io/tools/cron-parser/
-    - cron: '0 3 * * 0'
+    # - cron: '0 3 * * 0'
   workflow_dispatch: # Allow manual trigger
 
 permissions:
@@ -30,6 +30,6 @@ jobs:
           telegram-bot-token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           telegram-chat-id: ${{ secrets.TELEGRAM_CHAT_ID }}
           # 아래 예제 중 하나만 활성화해서 사용하세요.
-          workflow-file: custom-workflows/01-auto-basic.js
-          # workflow-file: custom-workflows/02-manual-fixed-numbers.js
+          # workflow-file: custom-workflows/01-auto-basic.js
+          workflow-file: custom-workflows/02-manual-fixed-numbers.js
           # workflow-file: custom-workflows/03-auto-plus-manual.js
