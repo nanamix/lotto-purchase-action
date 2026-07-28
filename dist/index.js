@@ -31124,11 +31124,123 @@ class InsufficientBalanceError extends Error {
         this.details = fullDetails;
     }
 }
+class AlreadyPurchasedError extends Error {
+    constructor(details) {
+        super(`제${details.round}회 로또를 이미 구매했습니다.`);
+        this.name = 'AlreadyPurchasedError';
+        this.details = details;
+    }
+}
 function isInsufficientBalanceError(error) {
     return error instanceof InsufficientBalanceError;
 }
+function isAlreadyPurchasedError(error) {
+    return error instanceof AlreadyPurchasedError;
+}
 function formatWon(amount) {
     return `${amount.toLocaleString('ko-KR')}원`;
+}
+
+const BASE_URL = 'https://www.dhlottery.co.kr';
+const HISTORY_PAGE_URL = `${BASE_URL}/mypage/mylotteryledger`;
+const HISTORY_API_URL = `${BASE_URL}/mypage/selectMyLotteryledger.do`;
+const TICKET_DETAIL_API_URL = `${BASE_URL}/mypage/lotto645TicketDetail.do`;
+function formatKstDate(date) {
+    const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Seoul',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    }).formatToParts(date);
+    const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+    return `${values.year}${values.month}${values.day}`;
+}
+function parseRound(value) {
+    const match = value.match(/\d+/);
+    return match ? Number(match[0]) : null;
+}
+function validateGame(numbers) {
+    if (!Array.isArray(numbers) ||
+        numbers.length !== 6 ||
+        numbers.some(number => !Number.isInteger(number) || number < 1 || number > 45) ||
+        new Set(numbers).size !== 6) {
+        throw new Error('구매내역에서 유효한 로또 번호 6개를 찾지 못했습니다');
+    }
+    return numbers;
+}
+function selectRoundPurchaseItems(payload, round) {
+    var _a;
+    const response = payload;
+    const items = (_a = response === null || response === void 0 ? void 0 : response.data) === null || _a === void 0 ? void 0 : _a.list;
+    if (!Array.isArray(items)) {
+        return [];
+    }
+    return items.filter(item => {
+        if (!item || typeof item !== 'object') {
+            return false;
+        }
+        const purchase = item;
+        return purchase.ltGdsNm === '로또6/45' && parseRound(purchase.ltEpsdView || '') === round;
+    });
+}
+function parseTicketDetail(payload) {
+    var _a, _b, _c;
+    const response = payload;
+    const games = (_b = (_a = response === null || response === void 0 ? void 0 : response.data) === null || _a === void 0 ? void 0 : _a.ticket) === null || _b === void 0 ? void 0 : _b.game_dtl;
+    if (((_c = response === null || response === void 0 ? void 0 : response.data) === null || _c === void 0 ? void 0 : _c.success) !== true || !Array.isArray(games)) {
+        throw new Error('로또 구매 상세내역 응답이 올바르지 않습니다');
+    }
+    return games.map(game => validateGame(game === null || game === void 0 ? void 0 : game.num));
+}
+function getPurchasedGamesForRound(page, round) {
+    return __awaiter$3(this, void 0, void 0, function* () {
+        const today = new Date();
+        const startDate = new Date(today.getTime() - 14 * 24 * 60 * 60 * 1000);
+        const commonHeaders = {
+            Accept: 'application/json, text/javascript, */*; q=0.01',
+            'X-Requested-With': 'XMLHttpRequest',
+            Referer: HISTORY_PAGE_URL
+        };
+        yield page.goto(HISTORY_PAGE_URL, { waitUntil: 'domcontentloaded' });
+        const historyUrl = new URL(HISTORY_API_URL);
+        historyUrl.search = new URLSearchParams({
+            srchStrDt: formatKstDate(startDate),
+            srchEndDt: formatKstDate(today),
+            pageNum: '1',
+            recordCountPerPage: '100',
+            _: String(Date.now())
+        }).toString();
+        const historyResponse = yield page.request.get(historyUrl.toString(), { headers: commonHeaders });
+        if (!historyResponse.ok()) {
+            throw new Error(`구매내역 조회 API가 HTTP ${historyResponse.status()}를 반환했습니다`);
+        }
+        const purchases = selectRoundPurchaseItems(yield historyResponse.json(), round);
+        const purchasedGames = [];
+        for (const purchase of purchases) {
+            if (!purchase.ntslOrdrNo || !purchase.gmInfo) {
+                throw new Error(`제${round}회 구매내역의 상세 조회 정보가 없습니다`);
+            }
+            const detailUrl = new URL(TICKET_DETAIL_API_URL);
+            detailUrl.search = new URLSearchParams({
+                ntslOrdrNo: purchase.ntslOrdrNo,
+                srchStrDt: formatKstDate(startDate),
+                srchEndDt: formatKstDate(today),
+                barcd: purchase.gmInfo
+            }).toString();
+            const detailResponse = yield page.request.get(detailUrl.toString(), {
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    Referer: HISTORY_PAGE_URL
+                }
+            });
+            if (!detailResponse.ok()) {
+                throw new Error(`구매 상세내역 API가 HTTP ${detailResponse.status()}를 반환했습니다`);
+            }
+            purchasedGames.push(...parseTicketDetail(yield detailResponse.json()));
+        }
+        return purchasedGames;
+    });
 }
 
 function parseGameChoice(line) {
@@ -31153,6 +31265,21 @@ function parsePurchaseApiResponse(payload) {
         throw new Error('Purchase succeeded but returned no valid game choices');
     }
     return gameChoices.map(line => parseGameChoice(line));
+}
+
+// Get the next lotto round number
+function getNextLottoRound() {
+    const standardDate = new Date(THOUSAND_ROUND_DATE);
+    const now = new Date();
+    const additionalRound = Math.floor((now.getTime() - standardDate.getTime()) / WEEK_TO_MILLISECOND) + 1;
+    return 1000 + additionalRound;
+}
+// Get the last (current) lotto round number
+function getLastLottoRound() {
+    const standardDate = new Date(THOUSAND_ROUND_DATE);
+    const now = new Date();
+    const additionalRound = Math.floor((now.getTime() - standardDate.getTime()) / WEEK_TO_MILLISECOND);
+    return 1000 + additionalRound;
 }
 
 dayjs.extend(utc);
@@ -31305,6 +31432,17 @@ function validateDepositBalance(session, requestedGames) {
         console.log(`[Purchase] Deposit balance is enough: required ${formatWon(requiredAmount)}`);
     });
 }
+function ensureRoundNotPurchased(session) {
+    return __awaiter$3(this, void 0, void 0, function* () {
+        const round = getNextLottoRound();
+        console.log(`[Purchase] Checking existing purchases for round ${round}`);
+        const numbers = yield getPurchasedGamesForRound(session.getPage(), round);
+        if (numbers.length > 0) {
+            throw new AlreadyPurchasedError({ round, numbers });
+        }
+        console.log(`[Purchase] No existing purchases found for round ${round}`);
+    });
+}
 function openPurchasePage(session, mode) {
     return __awaiter$3(this, void 0, void 0, function* () {
         const page = session.getPage();
@@ -31373,6 +31511,7 @@ function purchaseAuto(session, amount) {
         // Validate purchase time
         validatePurchaseAvailability();
         yield validateDepositBalance(session, amount);
+        yield ensureRoundNotPurchased(session);
         const page = yield openPurchasePage(session, 'auto');
         // Click auto purchase button
         console.log('[Purchase] Clicking auto purchase button');
@@ -31416,6 +31555,7 @@ function purchaseManual(session, numbers) {
         // Validate purchase time
         validatePurchaseAvailability();
         yield validateDepositBalance(session, numbers.length);
+        yield ensureRoundNotPurchased(session);
         const page = yield openPurchasePage(session, 'manual');
         // Select numbers for each game
         for (let gameIdx = 0; gameIdx < numbers.length; gameIdx++) {
@@ -57251,21 +57391,6 @@ function getCheckWinningLink(numbers, round) {
     return `${URLS.CHECK_WINNING}?method=winQr&v=${round}${nums}`;
 }
 
-// Get the next lotto round number
-function getNextLottoRound() {
-    const standardDate = new Date(THOUSAND_ROUND_DATE);
-    const now = new Date();
-    const additionalRound = Math.floor((now.getTime() - standardDate.getTime()) / WEEK_TO_MILLISECOND) + 1;
-    return 1000 + additionalRound;
-}
-// Get the last (current) lotto round number
-function getLastLottoRound() {
-    const standardDate = new Date(THOUSAND_ROUND_DATE);
-    const now = new Date();
-    const additionalRound = Math.floor((now.getTime() - standardDate.getTime()) / WEEK_TO_MILLISECOND);
-    return 1000 + additionalRound;
-}
-
 // Labels for GitHub Issues
 const LABELS = {
     waiting: ':hourglass:',
@@ -57660,6 +57785,8 @@ function run() {
                         numbers: result,
                         timestamp: new Date().toISOString()
                     }); // Auto-track successful purchase
+                    coreExports.setOutput('purchase-status', 'purchased');
+                    coreExports.setOutput('purchased-numbers-json', JSON.stringify(result));
                     console.log(`[Main] Auto purchase successful: ${result.length} games`);
                     return result;
                 }),
@@ -57671,6 +57798,8 @@ function run() {
                         numbers: result,
                         timestamp: new Date().toISOString()
                     }); // Auto-track successful purchase
+                    coreExports.setOutput('purchase-status', 'purchased');
+                    coreExports.setOutput('purchased-numbers-json', JSON.stringify(result));
                     console.log(`[Main] Manual purchase successful: ${result.length} games`);
                     return result;
                 }),
@@ -57694,10 +57823,35 @@ function run() {
             console.log(`[Main] All purchases completed: ${purchases.length} total purchases`);
         }
         catch (error) {
-            if (error instanceof Error) {
+            if (isAlreadyPurchasedError(error)) {
+                const numbersText = error.details.numbers
+                    .map((numbers, index) => `${index + 1}. ${numbers.join(', ')}`)
+                    .join('\n');
+                console.log(`[Main] ${error.message}\n${numbersText}`);
+                coreExports.notice(`${error.message}\n${numbersText}`);
+                coreExports.setOutput('purchase-status', 'already-purchased');
+                coreExports.setOutput('purchased-numbers-json', JSON.stringify(error.details.numbers));
+                try {
+                    yield coreExports.summary
+                        .addHeading(`제${error.details.round}회 이미 구매한 번호`)
+                        .addTable([
+                        [
+                            { data: '게임', header: true },
+                            { data: '번호', header: true }
+                        ],
+                        ...error.details.numbers.map((numbers, index) => [String(index + 1), numbers.join(', ')])
+                    ])
+                        .write();
+                }
+                catch (summaryError) {
+                    console.warn('[Main] Failed to write already-purchased summary:', summaryError);
+                }
+            }
+            else if (error instanceof Error) {
                 console.error('[Main] Workflow error:', error.message);
                 coreExports.setFailed(error.message);
                 if (isInsufficientBalanceError(error)) {
+                    coreExports.setOutput('purchase-status', 'insufficient-balance');
                     try {
                         yield createPurchaseFailureIssue(error.details, error.message);
                     }

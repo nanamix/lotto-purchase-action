@@ -33,6 +33,11 @@ inputs:
     required: false
     description: '텔레그램 채팅 ID (optional, 알림용)'
     default: ''
+outputs:
+  purchase-status:
+    description: '구매 상태: purchased, already-purchased, insufficient-balance'
+  purchased-numbers-json:
+    description: '구매했거나 이미 구매된 번호의 JSON 배열'
 runs:
   using: 'node24'
   main: 'dist/index.js'

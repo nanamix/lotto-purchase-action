@@ -5,6 +5,11 @@ export interface InsufficientBalanceDetails {
   requestedGames: number;
 }
 
+export interface AlreadyPurchasedDetails {
+  round: number;
+  numbers: number[][];
+}
+
 export class InsufficientBalanceError extends Error {
   readonly details: InsufficientBalanceDetails;
 
@@ -19,8 +24,22 @@ export class InsufficientBalanceError extends Error {
   }
 }
 
+export class AlreadyPurchasedError extends Error {
+  readonly details: AlreadyPurchasedDetails;
+
+  constructor(details: AlreadyPurchasedDetails) {
+    super(`제${details.round}회 로또를 이미 구매했습니다.`);
+    this.name = 'AlreadyPurchasedError';
+    this.details = details;
+  }
+}
+
 export function isInsufficientBalanceError(error: unknown): error is InsufficientBalanceError {
   return error instanceof InsufficientBalanceError;
+}
+
+export function isAlreadyPurchasedError(error: unknown): error is AlreadyPurchasedError {
+  return error instanceof AlreadyPurchasedError;
 }
 
 export function formatWon(amount: number): string {

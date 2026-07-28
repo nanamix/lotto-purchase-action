@@ -4,8 +4,10 @@ import timezone from 'dayjs/plugin/timezone';
 import type { Page } from 'playwright';
 import type { BrowserSession } from './browser';
 import { GOTO_TIMEOUT, PURCHASE_PAGE_READY_TIMEOUT, PURCHASE_RESULT_TIMEOUT, URLS, SELECTORS } from './config';
-import { InsufficientBalanceError, formatWon } from './errors';
+import { AlreadyPurchasedError, InsufficientBalanceError, formatWon } from './errors';
+import { getPurchasedGamesForRound } from './purchase-history';
 import { parsePurchaseApiResponse } from './purchase-result';
+import { getNextLottoRound } from '../utils/rounds';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -177,6 +179,18 @@ async function validateDepositBalance(session: BrowserSession, requestedGames: n
   console.log(`[Purchase] Deposit balance is enough: required ${formatWon(requiredAmount)}`);
 }
 
+async function ensureRoundNotPurchased(session: BrowserSession): Promise<void> {
+  const round = getNextLottoRound();
+  console.log(`[Purchase] Checking existing purchases for round ${round}`);
+  const numbers = await getPurchasedGamesForRound(session.getPage(), round);
+
+  if (numbers.length > 0) {
+    throw new AlreadyPurchasedError({ round, numbers });
+  }
+
+  console.log(`[Purchase] No existing purchases found for round ${round}`);
+}
+
 async function openPurchasePage(session: BrowserSession, mode: 'auto' | 'manual'): Promise<Page> {
   const page = session.getPage();
   const readySelector = mode === 'manual' ? SELECTORS.NUMBER_CHECKBOX(1) : SELECTORS.PURCHASE_TYPE_RANDOM_BTN;
@@ -259,6 +273,7 @@ export async function purchaseAuto(session: BrowserSession, amount: number): Pro
   // Validate purchase time
   validatePurchaseAvailability();
   await validateDepositBalance(session, amount);
+  await ensureRoundNotPurchased(session);
 
   const page = await openPurchasePage(session, 'auto');
 
@@ -310,6 +325,7 @@ export async function purchaseManual(session: BrowserSession, numbers: number[][
   // Validate purchase time
   validatePurchaseAvailability();
   await validateDepositBalance(session, numbers.length);
+  await ensureRoundNotPurchased(session);
 
   const page = await openPurchasePage(session, 'manual');
 

@@ -3,7 +3,7 @@ import * as path from 'path';
 import { pathToFileURL } from 'url';
 import { BrowserSession } from './core/browser';
 import { purchaseAuto, purchaseManual } from './core/purchase';
-import { isInsufficientBalanceError } from './core/errors';
+import { isAlreadyPurchasedError, isInsufficientBalanceError } from './core/errors';
 import { generateExcluding } from './utils/numbers';
 import { initLabels, createConsolidatedIssue, createPurchaseFailureIssue, checkWinningIssues } from './github/issues';
 import { notifyPurchase, notifyPurchaseFailure, notifyWinning } from './telegram/notify';
@@ -100,6 +100,8 @@ async function run() {
           numbers: result,
           timestamp: new Date().toISOString()
         }); // Auto-track successful purchase
+        core.setOutput('purchase-status', 'purchased');
+        core.setOutput('purchased-numbers-json', JSON.stringify(result));
         console.log(`[Main] Auto purchase successful: ${result.length} games`);
         return result;
       },
@@ -111,6 +113,8 @@ async function run() {
           numbers: result,
           timestamp: new Date().toISOString()
         }); // Auto-track successful purchase
+        core.setOutput('purchase-status', 'purchased');
+        core.setOutput('purchased-numbers-json', JSON.stringify(result));
         console.log(`[Main] Manual purchase successful: ${result.length} games`);
         return result;
       },
@@ -134,11 +138,35 @@ async function run() {
 
     console.log(`[Main] All purchases completed: ${purchases.length} total purchases`);
   } catch (error) {
-    if (error instanceof Error) {
+    if (isAlreadyPurchasedError(error)) {
+      const numbersText = error.details.numbers
+        .map((numbers, index) => `${index + 1}. ${numbers.join(', ')}`)
+        .join('\n');
+      console.log(`[Main] ${error.message}\n${numbersText}`);
+      core.notice(`${error.message}\n${numbersText}`);
+      core.setOutput('purchase-status', 'already-purchased');
+      core.setOutput('purchased-numbers-json', JSON.stringify(error.details.numbers));
+
+      try {
+        await core.summary
+          .addHeading(`제${error.details.round}회 이미 구매한 번호`)
+          .addTable([
+            [
+              { data: '게임', header: true },
+              { data: '번호', header: true }
+            ],
+            ...error.details.numbers.map((numbers, index) => [String(index + 1), numbers.join(', ')])
+          ])
+          .write();
+      } catch (summaryError) {
+        console.warn('[Main] Failed to write already-purchased summary:', summaryError);
+      }
+    } else if (error instanceof Error) {
       console.error('[Main] Workflow error:', error.message);
       core.setFailed(error.message);
 
       if (isInsufficientBalanceError(error)) {
+        core.setOutput('purchase-status', 'insufficient-balance');
         try {
           await createPurchaseFailureIssue(error.details, error.message);
         } catch (issueError) {
